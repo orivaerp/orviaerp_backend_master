@@ -1,0 +1,253 @@
+{
+  "info": {
+    "name": "OERP Backend",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5001" },
+    { "key": "userEmail", "value": "" },
+    { "key": "userPassword", "value": "" },
+    { "key": "userPasswordV2", "value": "" },
+    { "key": "userPasswordV3", "value": "" },
+    { "key": "userId", "value": "" },
+    { "key": "blogId", "value": "" },
+    { "key": "blogSlug", "value": "" },
+    { "key": "resetToken", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "01 Health Check",
+      "request": { "method": "GET", "url": "{{baseUrl}}/health" },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('status 200', () => pm.response.to.have.status(200));",
+        "pm.test('body is success', () => pm.expect(pm.response.text()).to.eql('success'));"
+      ] } }]
+    },
+    {
+      "name": "02 Create User",
+      "event": [
+        { "listen": "prerequest", "script": { "type": "text/javascript", "exec": [
+          "pm.collectionVariables.set('userEmail', 'newman.test.' + Date.now() + '@example.com');",
+          "pm.collectionVariables.set('userPassword', 'Secret123!');"
+        ] } },
+        { "listen": "test", "script": { "type": "text/javascript", "exec": [
+          "pm.test('status 201', () => pm.response.to.have.status(201));",
+          "const json = pm.response.json();",
+          "pm.test('user created', () => pm.expect(json.success).to.be.true);",
+          "pm.collectionVariables.set('userId', json.data._id);"
+        ] } }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/v1/users",
+        "body": { "mode": "raw", "raw": "{\n  \"firstName\": \"Newman\",\n  \"lastName\": \"Tester\",\n  \"email\": \"{{userEmail}}\",\n  \"phone\": \"9999999999\",\n  \"password\": \"{{userPassword}}\",\n  \"role\": \"user\"\n}", "options": { "raw": { "language": "json" } } }
+      }
+    },
+    {
+      "name": "03 Get All Users",
+      "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/users" },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('status 200', () => pm.response.to.have.status(200));",
+        "pm.test('data is array', () => pm.expect(pm.response.json().data).to.be.an('array'));"
+      ] } }]
+    },
+    {
+      "name": "04 Get User By Id",
+      "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/users/{{userId}}" },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('status 200', () => pm.response.to.have.status(200));",
+        "pm.test('email matches', () => pm.expect(pm.response.json().data.email).to.eql(pm.collectionVariables.get('userEmail')));"
+      ] } }]
+    },
+    {
+      "name": "05 Update User",
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/v1/users/{{userId}}",
+        "body": { "mode": "raw", "raw": "{\n  \"firstName\": \"NewmanUpdated\"\n}", "options": { "raw": { "language": "json" } } }
+      },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('status 200', () => pm.response.to.have.status(200));",
+        "pm.test('firstName updated', () => pm.expect(pm.response.json().data.firstName).to.eql('NewmanUpdated'));"
+      ] } }]
+    },
+    {
+      "name": "06 Login - Wrong Password (expect 401)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/v1/auth/login",
+        "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"totally-wrong\"\n}", "options": { "raw": { "language": "json" } } }
+      },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('status 401', () => pm.response.to.have.status(401));"
+      ] } }]
+    },
+    {
+      "name": "07 Create Blog - Unauthenticated (expect 401)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/v1/blogs",
+        "body": { "mode": "raw", "raw": "{\n  \"title\": \"Should Fail\",\n  \"content\": \"This should not be created because there is no session.\"\n}", "options": { "raw": { "language": "json" } } }
+      },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('status 401', () => pm.response.to.have.status(401));"
+      ] } }]
+    },
+    {
+      "name": "08 Login",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/v1/auth/login",
+        "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"{{userPassword}}\"\n}", "options": { "raw": { "language": "json" } } }
+      },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('status 200', () => pm.response.to.have.status(200));",
+        "pm.test('logged in', () => pm.expect(pm.response.json().success).to.be.true);"
+      ] } }]
+    },
+    {
+      "name": "09 Create Blog",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/v1/blogs",
+        "body": { "mode": "raw", "raw": "{\n  \"title\": \"My First Newman Post\",\n  \"content\": \"This is the full body of the blog post, well over twenty characters.\",\n  \"excerpt\": \"Short summary\",\n  \"category\": \"General\",\n  \"tags\": [\"newman\", \"test\"],\n  \"status\": \"published\"\n}", "options": { "raw": { "language": "json" } } }
+      },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('status 201', () => pm.response.to.have.status(201));",
+        "const json = pm.response.json();",
+        "pm.collectionVariables.set('blogId', json.data._id);",
+        "pm.collectionVariables.set('blogSlug', json.data.slug);"
+      ] } }]
+    },
+    {
+      "name": "10 Get All Blogs",
+      "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/blogs" },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('status 200', () => pm.response.to.have.status(200));",
+        "pm.test('data is array', () => pm.expect(pm.response.json().data).to.be.an('array'));"
+      ] } }]
+    },
+    {
+      "name": "11 Get Blog By Id",
+      "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/blogs/{{blogId}}" },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('status 200', () => pm.response.to.have.status(200));"
+      ] } }]
+    },
+    {
+      "name": "12 Get Blog By Slug",
+      "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/blogs/slug/{{blogSlug}}" },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('status 200', () => pm.response.to.have.status(200));"
+      ] } }]
+    },
+    {
+      "name": "13 Update Blog",
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/v1/blogs/{{blogId}}",
+        "body": { "mode": "raw", "raw": "{\n  \"status\": \"archived\"\n}", "options": { "raw": { "language": "json" } } }
+      },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('status 200', () => pm.response.to.have.status(200));",
+        "pm.test('status updated', () => pm.expect(pm.response.json().data.status).to.eql('archived'));"
+      ] } }]
+    },
+    {
+      "name": "14 Change Password",
+      "event": [
+        { "listen": "prerequest", "script": { "type": "text/javascript", "exec": [
+          "pm.collectionVariables.set('userPasswordV2', pm.collectionVariables.get('userPassword') + 'X1');"
+        ] } },
+        { "listen": "test", "script": { "type": "text/javascript", "exec": [
+          "pm.test('status 200', () => pm.response.to.have.status(200));",
+          "pm.collectionVariables.set('userPassword', pm.collectionVariables.get('userPasswordV2'));"
+        ] } }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/v1/auth/change-password",
+        "body": { "mode": "raw", "raw": "{\n  \"currentPassword\": \"{{userPassword}}\",\n  \"newPassword\": \"{{userPasswordV2}}\"\n}", "options": { "raw": { "language": "json" } } }
+      }
+    },
+    {
+      "name": "15 Delete Blog",
+      "request": { "method": "DELETE", "url": "{{baseUrl}}/api/v1/blogs/{{blogId}}" },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('status 200', () => pm.response.to.have.status(200));"
+      ] } }]
+    },
+    {
+      "name": "16 Logout",
+      "request": { "method": "POST", "url": "{{baseUrl}}/api/v1/auth/logout" },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('status 200', () => pm.response.to.have.status(200));"
+      ] } }]
+    },
+    {
+      "name": "17 Login With Changed Password",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/v1/auth/login",
+        "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"{{userPassword}}\"\n}", "options": { "raw": { "language": "json" } } }
+      },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('status 200 (change-password took effect)', () => pm.response.to.have.status(200));"
+      ] } }]
+    },
+    {
+      "name": "18 Forgot Password",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/v1/auth/forgot-password",
+        "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{userEmail}}\"\n}", "options": { "raw": { "language": "json" } } }
+      },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('status 200', () => pm.response.to.have.status(200));",
+        "pm.collectionVariables.set('resetToken', pm.response.json().data.resetToken);"
+      ] } }]
+    },
+    {
+      "name": "19 Reset Password",
+      "event": [
+        { "listen": "prerequest", "script": { "type": "text/javascript", "exec": [
+          "pm.collectionVariables.set('userPasswordV3', pm.collectionVariables.get('userPassword') + 'Y2');"
+        ] } },
+        { "listen": "test", "script": { "type": "text/javascript", "exec": [
+          "pm.test('status 200', () => pm.response.to.have.status(200));",
+          "pm.collectionVariables.set('userPassword', pm.collectionVariables.get('userPasswordV3'));"
+        ] } }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/v1/auth/reset-password/{{resetToken}}",
+        "body": { "mode": "raw", "raw": "{\n  \"password\": \"{{userPasswordV3}}\"\n}", "options": { "raw": { "language": "json" } } }
+      }
+    },
+    {
+      "name": "20 Logout (cleanup)",
+      "request": { "method": "POST", "url": "{{baseUrl}}/api/v1/auth/logout" },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('status 200', () => pm.response.to.have.status(200));"
+      ] } }]
+    },
+    {
+      "name": "21 Delete User (cleanup)",
+      "request": { "method": "DELETE", "url": "{{baseUrl}}/api/v1/users/{{userId}}" },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('status 200', () => pm.response.to.have.status(200));"
+      ] } }]
+    }
+  ]
+}
