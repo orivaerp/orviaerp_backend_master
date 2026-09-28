@@ -7,6 +7,7 @@ const blogRoutes = require('../modules/blog/blog.routes');
 const categoryRoutes = require('../modules/category/category.routes');
 const productRoutes = require('../modules/product/product.routes');
 const enquiryRoutes = require('../modules/enquiry/enquiry.routes');
+const contactRoutes = require('../modules/contact/contact.routes');
 
 router.use('/users', userRoutes);
 router.use('/auth', authRoutes);
@@ -14,5 +15,6 @@ router.use('/blogs', blogRoutes);
 router.use('/categories', categoryRoutes);
 router.use('/products', productRoutes);
 router.use('/enquiries', enquiryRoutes);
+router.use('/contacts', contactRoutes);
 
 module.exports = router;

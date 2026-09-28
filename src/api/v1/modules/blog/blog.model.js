@@ -29,8 +29,8 @@ const blogSchema = new mongoose.Schema(
       trim: true,
     },
     coverImage: {
-      type: String,
-      trim: true,
+      url: { type: String, default: null },
+      key: { type: String, default: null },
     },
     author: {
       type: mongoose.Schema.Types.ObjectId,

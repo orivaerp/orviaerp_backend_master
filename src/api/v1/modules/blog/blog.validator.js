@@ -4,7 +4,8 @@ exports.createBlogSchema = Joi.object({
   title: Joi.string().trim().min(3).max(200).required(),
   content: Joi.string().trim().min(20).required(),
   excerpt: Joi.string().trim().max(300).allow('', null),
-  coverImage: Joi.string().trim().uri().allow('', null),
+  // coverImage is never set here — it's an { url, key } pair managed exclusively
+  // by PUT /:id/cover-image (multer-s3), not a plain string a client can post.
   category: Joi.string().trim().allow('', null),
   tags: Joi.array().items(Joi.string().trim()),
   status: Joi.string().valid('draft', 'published', 'archived'),
@@ -16,7 +17,6 @@ exports.updateBlogSchema = Joi.object({
   title: Joi.string().trim().min(3).max(200),
   content: Joi.string().trim().min(20),
   excerpt: Joi.string().trim().max(300).allow('', null),
-  coverImage: Joi.string().trim().uri().allow('', null),
   category: Joi.string().trim().allow('', null),
   tags: Joi.array().items(Joi.string().trim()),
   status: Joi.string().valid('draft', 'published', 'archived'),

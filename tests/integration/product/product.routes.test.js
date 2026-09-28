@@ -92,4 +92,58 @@ describe('Product routes (integration)', () => {
 
     expect(res.status).toBe(500);
   });
+
+  it('POST /products accepts label, addons and notes', async () => {
+    const agent = await createLoggedInAdmin();
+    const category = await agent.post('/api/v1/categories').send({ name: 'Website' });
+
+    const res = await agent.post('/api/v1/products').send({
+      name: 'Premium Portfolio',
+      category: category.body.data._id,
+      label: 'Bestseller',
+      addons: [
+        { label: 'Extra revision', value: '1500' },
+        { label: 'Priority support', value: '' },
+      ],
+      notes: ['Client wants dark mode', 'Deliver by Friday'],
+    });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.label).toBe('Bestseller');
+    expect(res.body.data.addons).toEqual([
+      { label: 'Extra revision', value: '1500' },
+      { label: 'Priority support', value: '' },
+    ]);
+    expect(res.body.data.notes).toEqual(['Client wants dark mode', 'Deliver by Friday']);
+  });
+
+  it('POST /products rejects an addon without a label', async () => {
+    const agent = await createLoggedInAdmin();
+    const category = await agent.post('/api/v1/categories').send({ name: 'Website' });
+
+    const res = await agent.post('/api/v1/products').send({
+      name: 'Bad Addon Product',
+      category: category.body.data._id,
+      addons: [{ value: '500' }],
+    });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('PUT /products/:id updates label, addons and notes', async () => {
+    const agent = await createLoggedInAdmin();
+    const category = await agent.post('/api/v1/categories').send({ name: 'Website' });
+    const created = await agent.post('/api/v1/products').send({ name: 'Editable Product', category: category.body.data._id });
+
+    const res = await agent.put(`/api/v1/products/${created.body.data._id}`).send({
+      label: 'New',
+      addons: [{ label: 'Rush delivery', value: '2000' }],
+      notes: ['Follow up next week'],
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.label).toBe('New');
+    expect(res.body.data.addons).toEqual([{ label: 'Rush delivery', value: '2000' }]);
+    expect(res.body.data.notes).toEqual(['Follow up next week']);
+  });
 });

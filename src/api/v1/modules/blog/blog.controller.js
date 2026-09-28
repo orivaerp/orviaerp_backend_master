@@ -1,6 +1,7 @@
 const blogService = require('./blog.service');
 const catchAsync = require('../../../../common/utils/catchAsync');
 const { success, error } = require('../../../../common/utils/apiResponse');
+const { deleteFromS3, replaceFile } = require('../../../../common/services/file-upload.service');
 
 // @desc    Get all blogs
 // @route   GET /api/v1/blogs
@@ -72,6 +73,67 @@ exports.deleteBlog = catchAsync(async (req, res) => {
     return error(res, { statusCode: 403, message: 'Not allowed to delete this blog' });
   }
 
+  if (blog.coverImage?.key) {
+    await deleteFromS3({ key: blog.coverImage.key, bucket: 'public' });
+  }
+
   await blogService.deleteBlogById(req.params.id);
   return success(res, { message: 'Blog deleted successfully' });
+});
+
+
+// @desc    Upload/replace blog cover image
+// @route   PUT /api/v1/blogs/:id/cover-image
+exports.uploadCoverImage = catchAsync(async (req, res) => {
+  const blog = await blogService.findBlogById(req.params.id);
+
+  if (!blog) {
+    return error(res, { statusCode: 404, message: 'Blog not found' });
+  }
+
+  const isOwner = blog.author._id.toString() === req.user.id;
+  if (!isOwner && req.user.role !== 'admin') {
+    return error(res, { statusCode: 403, message: 'Not allowed to update this blog' });
+  }
+
+  if (!req.file) {
+    return error(res, { statusCode: 400, message: 'coverImage file is required' });
+  }
+
+  // Deletes the previous cover image from S3 (if any) before saving the new one,
+  // so replacing a cover image never leaves an orphaned object in the bucket.
+  const coverImage = await replaceFile({
+    oldKey: blog.coverImage?.key,
+    file: req.file,
+    bucket: 'public',
+  });
+
+  const updatedBlog = await blogService.updateBlogById(req.params.id, { coverImage });
+
+  return success(res, { message: 'Cover image uploaded successfully', data: updatedBlog });
+});
+
+// @desc    Remove the blog's cover image (deletes the S3 object too)
+// @route   DELETE /api/v1/blogs/:id/cover-image
+exports.deleteCoverImage = catchAsync(async (req, res) => {
+  const blog = await blogService.findBlogById(req.params.id);
+
+  if (!blog) {
+    return error(res, { statusCode: 404, message: 'Blog not found' });
+  }
+
+  const isOwner = blog.author._id.toString() === req.user.id;
+  if (!isOwner && req.user.role !== 'admin') {
+    return error(res, { statusCode: 403, message: 'Not allowed to update this blog' });
+  }
+
+  if (blog.coverImage?.key) {
+    await deleteFromS3({ key: blog.coverImage.key, bucket: 'public' });
+  }
+
+  const updatedBlog = await blogService.updateBlogById(req.params.id, {
+    coverImage: { url: null, key: null },
+  });
+
+  return success(res, { message: 'Cover image removed successfully', data: updatedBlog });
 });

@@ -44,6 +44,8 @@ const productSchema = new Schema(
     slug: { type: String, required: true, unique: true, lowercase: true },
     // Auto-generated on create (see Product.generateCode) unless supplied explicitly.
     code: { type: String, required: true, unique: true, uppercase: true, trim: true },
+    // Short highlight badge shown next to the product, e.g. "Bestseller", "New".
+    label: { type: String, trim: true },
     shortDescription: String,
     description: String,
 
@@ -85,6 +87,15 @@ const productSchema = new Schema(
     deliverables: [String],
     faqs: [{ question: String, answer: String }],
     attributes: { type: Map, of: Schema.Types.Mixed }, // category-specific data
+    // Optional paid/unpaid add-ons for this product, e.g. { label: "Extra revision", value: "1500" }.
+    addons: [
+      {
+        _id: false,
+        label: { type: String, trim: true, required: true },
+        value: { type: String, trim: true },
+      },
+    ],
+    notes: [String], // free-form internal/customer-facing notes
 
     // ---------- MEDIA ----------
     thumbnail: String,

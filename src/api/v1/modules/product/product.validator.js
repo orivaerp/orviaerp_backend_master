@@ -15,6 +15,11 @@ const faqSchema = Joi.object({
   answer: Joi.string().trim().required(),
 });
 
+const addonSchema = Joi.object({
+  label: Joi.string().trim().min(1).max(120).required(),
+  value: Joi.string().trim().max(200).allow('', null),
+});
+
 const seoSchema = Joi.object({
   metaTitle: Joi.string().trim().max(70).allow('', null),
   metaDescription: Joi.string().trim().max(160).allow('', null),
@@ -26,6 +31,7 @@ const baseFields = {
   name: Joi.string().trim().min(2).max(200),
   // Optional — auto-generated from the category on create when left blank.
   code: Joi.string().trim().max(30).allow('', null),
+  label: Joi.string().trim().max(60).allow('', null),
   shortDescription: Joi.string().trim().max(300).allow('', null),
   description: Joi.string().trim().allow('', null),
   category: objectId,
@@ -41,6 +47,8 @@ const baseFields = {
   deliverables: Joi.array().items(Joi.string().trim()),
   faqs: Joi.array().items(faqSchema),
   attributes: Joi.object().unknown(true),
+  addons: Joi.array().items(addonSchema),
+  notes: Joi.array().items(Joi.string().trim()),
   thumbnail: Joi.string().trim().uri().allow('', null),
   gallery: Joi.array().items(Joi.string().trim().uri()),
   demoUrl: Joi.string().trim().uri().allow('', null),
