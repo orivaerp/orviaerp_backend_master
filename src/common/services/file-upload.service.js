@@ -1,4 +1,5 @@
-const { DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const { DeleteObjectCommand, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const { s3Client, buckets } = require('../config/aws');
 
 function resolveBucketName(bucket) {
@@ -40,4 +41,37 @@ exports.replaceFile = async ({ oldKey, file, bucket = 'public' }) => {
     await exports.deleteFromS3({ key: oldKey, bucket });
   }
   return { url: file.location, key: file.key };
+};
+
+/**
+ * Uploads a raw buffer we fetched ourselves (not a multer file) — e.g. media
+ * downloaded from WhatsApp's Cloud API. Returns just the key; callers that
+ * need a viewable URL should use getSignedGetUrl (for the private bucket) or
+ * build the public URL themselves.
+ */
+exports.uploadBuffer = async ({ buffer, mimeType, folder = 'misc', filename, bucket = 'private' }) => {
+  const bucketName = resolveBucketName(bucket);
+  const safeName = (filename || 'file').replace(/\s+/g, '-');
+  const key = `${folder}/${Date.now()}-${safeName}`;
+
+  await s3Client.send(
+    new PutObjectCommand({
+      Bucket: bucketName,
+      Key: key,
+      Body: buffer,
+      ContentType: mimeType,
+    })
+  );
+
+  return { key, mimeType };
+};
+
+/**
+ * A time-limited URL for an object in the private bucket (WhatsApp media
+ * isn't meant to be public). Defaults to 1 hour.
+ */
+exports.getSignedGetUrl = async ({ key, bucket = 'private', expiresInSeconds = 3600 }) => {
+  const bucketName = resolveBucketName(bucket);
+  const command = new GetObjectCommand({ Bucket: bucketName, Key: key });
+  return getSignedUrl(s3Client, command, { expiresIn: expiresInSeconds });
 };
