@@ -1,0 +1,61 @@
+name: Deploy to DigitalOcean
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Droplet via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DROPLET_HOST }}
+          username: ${{ secrets.DROPLET_USER }}
+          key: ${{ secrets.DROPLET_SSH_KEY }}
+          port: ${{ secrets.DROPLET_PORT }}
+
+          script: |
+            set -e
+
+            PROJECT_DIR="/root/project/orviaerp_backend_master"
+
+            # Create project directory
+            mkdir -p /root/project
+
+            # Clone repository if it does not exist
+            if [ ! -d "$PROJECT_DIR/.git" ]; then
+              echo "Cloning repository..."
+              git clone -b master git@github.com:orivaerp/orviaerp_backend_master.git "$PROJECT_DIR"
+            fi
+
+            cd "$PROJECT_DIR"
+
+            # Get latest code
+            echo "Pulling latest code..."
+            git fetch origin
+            git reset --hard origin/master
+
+            # Install dependencies
+            echo "Installing dependencies..."
+            npm install
+
+            # Start or restart PM2 application
+            if pm2 describe orvia-backend > /dev/null 2>&1; then
+              echo "Restarting orvia-backend..."
+              pm2 restart orvia-backend
+            else
+              echo "Starting orvia-backend..."
+              pm2 start npm --name "orvia-backend" -- start
+            fi
+
+            # Save PM2 process list
+            pm2 save
+
+            echo "Deployment completed successfully."

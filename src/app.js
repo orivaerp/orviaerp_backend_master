@@ -7,11 +7,40 @@ const cors =
 const session =
    require("express-session");
 
+const { MongoStore } =
+   require("connect-mongo");
+
 const passport =
    require("./common/config/passport");
 
 const app =
    express();
+
+/* -------------------------------------------------------------------------- */
+/*                             Session Store                                  */
+/* -------------------------------------------------------------------------- */
+
+// Falls back to express-session's default in-memory store when MONGO_URI isn't
+// set (e.g. the test suite, which connects mongoose directly to an in-memory
+// Mongo instead of via this env var) - fine there since tests don't need
+// persistence. Mirrors db.js's SOCKS5 proxy options so it works wherever the
+// main DB connection does.
+let sessionStore;
+
+if (process.env.MONGO_URI) {
+   const clientOptions = {};
+
+   if (process.env.USE_PROXY === "true") {
+      clientOptions.proxyHost = process.env.PROXY_HOST || "127.0.0.1";
+      clientOptions.proxyPort = parseInt(process.env.PROXY_PORT) || 1080;
+   }
+
+   sessionStore = MongoStore.create({
+      mongoUrl: process.env.MONGO_URI,
+      clientOptions,
+      ttl: 24 * 60 * 60 // seconds, matches the cookie's maxAge below
+   });
+}
 
 if (process.env.NODE_ENV === "production") {
    app.set("trust proxy", 1);
@@ -36,14 +65,12 @@ app.use(session({
    secret: process.env.SESSION_SECRET,
    resave: false,
    saveUninitialized: false,
+   store: sessionStore,
    cookie: {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       maxAge: 24 * 60 * 60 * 1000
    }
-   // NOTE: defaults to the in-memory session store, which is fine for a single
-   // dev instance but not for production/multi-instance. Swap in a persistent
-   // store (e.g. connect-mongo) before deploying.
 }));
 
 app.use(passport.initialize());
