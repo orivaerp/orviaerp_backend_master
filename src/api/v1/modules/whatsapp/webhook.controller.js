@@ -106,9 +106,12 @@ async function handleInboundMessage(message, profileName) {
   await conversation.save();
 
   const payload = { conversationId: conversation._id, message: savedMessage };
-  getIO().to('inbox:all').emit('new_message', payload);
+  const io = getIO();
+  const inboxRoomSize = io.sockets.adapter.rooms.get('inbox:all')?.size || 0;
+  console.log(`[whatsapp webhook] emitting new_message to 'inbox:all' room (${inboxRoomSize} connected socket(s))`);
+  io.to('inbox:all').emit('new_message', payload);
   if (conversation.assignedTo) {
-    getIO().to(`agent:${conversation.assignedTo}`).emit('new_message', payload);
+    io.to(`agent:${conversation.assignedTo}`).emit('new_message', payload);
   }
 }
 

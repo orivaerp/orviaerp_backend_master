@@ -10,7 +10,7 @@ let io;
 function initSocket(httpServer) {
   io = new Server(httpServer, {
     cors: {
-      origin: ['http://localhost:4200'],
+      origin: ['http://localhost:4200', 'https://admin.orviaerp.com'],
       credentials: true,
     },
   });
@@ -22,6 +22,7 @@ function initSocket(httpServer) {
   io.use((socket, next) => {
     const userId = socket.request.session?.passport?.user;
     if (!userId) {
+      console.warn(`[socket] rejected connection ${socket.id} - no session/passport user found`);
       return next(new Error('unauthorized'));
     }
     socket.userId = userId;
@@ -33,6 +34,15 @@ function initSocket(httpServer) {
     // anyone with the inbox open sees every new/reassigned conversation.
     socket.join(`agent:${socket.userId}`);
     socket.join('inbox:all');
+    console.log(`[socket] connected ${socket.id} as user ${socket.userId}`);
+
+    socket.on('disconnect', (reason) => {
+      console.log(`[socket] disconnected ${socket.id}: ${reason}`);
+    });
+  });
+
+  io.engine.on('connection_error', (err) => {
+    console.error('[socket] engine connection_error:', err.code, err.message, err.context);
   });
 
   return io;

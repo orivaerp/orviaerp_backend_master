@@ -23,7 +23,8 @@ if (process.env.NODE_ENV === "production") {
 
 app.use(cors({
    origin: [
-      "http://localhost:4200"
+      "http://localhost:4200",
+      "https://admin.orviaerp.com"
    ],
    credentials: true,
    methods: ["GET", "POST","PATCH", "PUT", "DELETE", "OPTIONS"],

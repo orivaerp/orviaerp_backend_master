@@ -36,6 +36,15 @@ module.exports = session({
   cookie: {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
+    // Frontend (admin.orviaerp.com) and backend (orvia.icher.co.in) are
+    // different registrable domains in production - a genuinely cross-site
+    // setup. Cross-site fetch/XHR requests only carry the session cookie if
+    // it's SameSite=None (which requires Secure). The default (SameSite=Lax)
+    // only works for a ~2min grace window after login (Chrome's "Lax+POST"
+    // mitigation), which is exactly the "works right after login, then
+    // silently logs out" symptom this was causing. Local dev stays on Lax
+    // since localhost:4200/:5001 share a registrable domain (same-site).
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     maxAge: 24 * 60 * 60 * 1000,
   },
 });
