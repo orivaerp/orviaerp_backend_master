@@ -39,6 +39,10 @@ exports.receiveWebhook = catchAsync(async (req, res) => {
         (value.contacts || []).map((c) => [c.wa_id, c.profile?.name])
       );
 
+      console.log(
+        `[whatsapp webhook] received ${value.messages?.length || 0} message(s), ${value.statuses?.length || 0} status update(s)`
+      );
+
       for (const message of value.messages || []) {
         try {
           await handleInboundMessage(message, profileByWaId[message.from]);
@@ -145,7 +149,14 @@ async function handleStatusUpdate(status) {
     { returnDocument: 'after' }
   );
 
-  if (!message) return; // status for a message we don't have (e.g. sent before this went live)
+  if (!message) {
+    // Status update for a message our DB never created - e.g. it was sent
+    // directly via the Graph API/Meta's test console instead of through our
+    // send endpoints, or it predates this going live. Not an error, but
+    // worth a log line so "nothing shows up" is traceable instead of silent.
+    console.log(`[whatsapp webhook] status update for unknown waMessageId "${status.id}" - ignored`);
+    return;
+  }
 
   getIO().to('inbox:all').emit('message_status_update', {
     conversationId: message.conversation,
