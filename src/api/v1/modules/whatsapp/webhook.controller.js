@@ -146,6 +146,15 @@ async function extractContent(message) {
 }
 
 async function handleStatusUpdate(status) {
+  if (status.status === 'failed' && status.errors?.length) {
+    for (const err of status.errors) {
+      console.error(
+        `[whatsapp webhook] delivery FAILED for waMessageId "${status.id}" - code ${err.code}: ${err.title}` +
+          (err.error_data?.details ? ` (${err.error_data.details})` : '')
+      );
+    }
+  }
+
   const message = await WaMessage.findOneAndUpdate(
     { waMessageId: status.id },
     { status: status.status },
