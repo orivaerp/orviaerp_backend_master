@@ -1,5 +1,6 @@
 const enquiryService = require('./enquiry.service');
 const Enquiry = require('./enquiry.model');
+const { parseCsv, matchEnum } = require('./enquiry-csv');
 const catchAsync = require('../../../../common/utils/catchAsync');
 const { success, error } = require('../../../../common/utils/apiResponse');
 
@@ -56,7 +57,9 @@ exports.getEnquiryById = catchAsync(async (req, res) => {
 //          also used by the dashboard's "Add lead" form)
 // @route   POST /api/v1/enquiries
 exports.createEnquiry = catchAsync(async (req, res) => {
-  const enquiry = await enquiryService.create(req.body);
+  // Taken from the session, never the request body (the route is public), so
+  // it can't be spoofed. Anonymous website submissions get no createdBy.
+  const enquiry = await enquiryService.create({ ...req.body, createdBy: req.user?.id });
   return success(res, { statusCode: 201, message: 'Enquiry submitted successfully', data: enquiry });
 });
 
@@ -151,53 +154,6 @@ exports.exportEnquiries = catchAsync(async (req, res) => {
   return res.status(200).send(csv);
 });
 
-// Minimal CSV line parser — handles quoted fields with embedded commas/quotes,
-// which is all we need for a hand-rolled export/import round trip.
-function parseCsvLine(line) {
-  const cells = [];
-  let cur = '';
-  let inQuotes = false;
-
-  for (let i = 0; i < line.length; i += 1) {
-    const ch = line[i];
-    if (inQuotes) {
-      if (ch === '"') {
-        if (line[i + 1] === '"') {
-          cur += '"';
-          i += 1;
-        } else {
-          inQuotes = false;
-        }
-      } else {
-        cur += ch;
-      }
-    } else if (ch === '"') {
-      inQuotes = true;
-    } else if (ch === ',') {
-      cells.push(cur);
-      cur = '';
-    } else {
-      cur += ch;
-    }
-  }
-  cells.push(cur);
-  return cells;
-}
-
-function parseCsv(text) {
-  const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
-  if (lines.length < 2) return [];
-
-  const headers = parseCsvLine(lines[0]).map((h) => h.trim().toLowerCase());
-  return lines.slice(1).map((line) => {
-    const cells = parseCsvLine(line);
-    const row = {};
-    headers.forEach((h, i) => {
-      row[h] = (cells[i] ?? '').trim();
-    });
-    return row;
-  });
-}
 
 // @desc    Bulk-import leads from CSV text (same columns as /export produces)
 // @route   POST /api/v1/enquiries/import
@@ -216,15 +172,16 @@ exports.importEnquiries = catchAsync(async (req, res) => {
       phone: row.phone,
       subject: row.subject || undefined,
       message: row.message || row.subject || undefined,
-      source: Enquiry.SOURCES.includes(row.source) ? row.source : 'other',
-      status: Enquiry.STATUSES.includes(row.status) ? row.status : undefined,
-      category: Enquiry.CATEGORIES.includes(row.category) ? row.category : undefined,
+      source: matchEnum(row.source, Enquiry.SOURCES) || 'other',
+      status: matchEnum(row.status, Enquiry.STATUSES),
+      category: matchEnum(row.category, Enquiry.CATEGORIES),
       subCategory: row['sub category'] || row.subcategory || undefined,
       firmName: row['firm name'] || row.firmname || undefined,
       website: row.website || undefined,
       city: row.city || undefined,
       address: row.address || undefined,
       state: row.state || undefined,
+      createdBy: req.user.id,
     }));
 
   if (payloads.length === 0) {

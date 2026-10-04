@@ -7,7 +7,10 @@ const normalizeRefs = (data) => {
 };
 
 const populateRefs = (query) =>
-  query.populate('product', 'name slug').populate('assignedTo', 'firstName lastName email');
+  query
+    .populate('product', 'name slug')
+    .populate('assignedTo', 'firstName lastName email')
+    .populate('createdBy', 'firstName lastName email');
 
 exports.findAll = async (filter = {}) => {
   return populateRefs(Enquiry.find({ isDeleted: false, ...filter })).sort('-createdAt');

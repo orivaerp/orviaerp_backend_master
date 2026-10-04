@@ -69,6 +69,12 @@ const enquirySchema = new Schema(
       type: Schema.Types.ObjectId,
       ref: 'User',
     },
+    // Staff member who added the lead from the admin panel (or imported it).
+    // Left empty for public website-form submissions.
+    createdBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+    },
     notes: [
       {
         text: { type: String, trim: true, required: true },
