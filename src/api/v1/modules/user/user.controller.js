@@ -31,7 +31,11 @@ exports.createUser = catchAsync(async (req, res) => {
     return error(res, { statusCode: 409, message: 'User with this email already exists' });
   }
 
-  const user = await userService.createUser({ firstName, lastName, email, phone, password, role });
+  // This route doubles as public sign-up, so only a logged-in admin may choose a
+  // role; everyone else is always created as a plain 'user'.
+  const assignedRole = req.user?.role === 'admin' && role ? role : 'user';
+
+  const user = await userService.createUser({ firstName, lastName, email, phone, password, role: assignedRole });
 
   const userObj = user.toObject();
   delete userObj.password; // never leak password in response

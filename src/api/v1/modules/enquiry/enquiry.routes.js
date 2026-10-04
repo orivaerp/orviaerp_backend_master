@@ -21,23 +21,23 @@ const restrictTo = require('../../../../common/middlewares/restrictTo.middleware
 // Anyone can submit an enquiry; only staff can view/manage the inbox.
 router
   .route('/')
-  .get(isAuthenticated, restrictTo('admin', 'vendor'), getAllEnquiries)
+  .get(isAuthenticated, restrictTo('admin', 'vendor', 'sales'), getAllEnquiries)
   .post(validate(createEnquirySchema), createEnquiry);
 
-router.get('/stats', isAuthenticated, restrictTo('admin', 'vendor'), getEnquiryStats);
-router.get('/export', isAuthenticated, restrictTo('admin', 'vendor'), exportEnquiries);
+router.get('/stats', isAuthenticated, restrictTo('admin', 'vendor', 'sales'), getEnquiryStats);
+router.get('/export', isAuthenticated, restrictTo('admin', 'vendor', 'sales'), exportEnquiries);
 router.post('/import', isAuthenticated, restrictTo('admin'), importEnquiries);
 
 router
   .route('/:id')
-  .get(isAuthenticated, restrictTo('admin', 'vendor'), getEnquiryById)
-  .put(isAuthenticated, restrictTo('admin', 'vendor'), validate(updateEnquirySchema), updateEnquiry)
+  .get(isAuthenticated, restrictTo('admin', 'vendor', 'sales'), getEnquiryById)
+  .put(isAuthenticated, restrictTo('admin', 'vendor', 'sales'), validate(updateEnquirySchema), updateEnquiry)
   .delete(isAuthenticated, restrictTo('admin'), deleteEnquiry);
 
 router.post(
   '/:id/notes',
   isAuthenticated,
-  restrictTo('admin', 'vendor'),
+  restrictTo('admin', 'vendor', 'sales'),
   validate(addNoteSchema),
   addEnquiryNote
 );

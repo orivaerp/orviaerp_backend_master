@@ -1,10 +1,11 @@
 const request = require('supertest');
 const app = require('../../helpers/app');
 const { buildUserPayload } = require('../../helpers/factories');
+const { registerUser } = require('../../helpers/seed');
 
 async function createLoggedInAdmin() {
   const payload = buildUserPayload({ role: 'admin' });
-  await request(app).post('/api/v1/users').send(payload);
+  await registerUser(payload);
   const agent = request.agent(app);
   await agent.post('/api/v1/auth/login').send({ email: payload.email, password: payload.password });
   return agent;

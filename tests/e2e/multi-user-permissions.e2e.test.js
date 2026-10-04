@@ -1,6 +1,7 @@
 const request = require('supertest');
 const app = require('../helpers/app');
 const { buildUserPayload } = require('../helpers/factories');
+const { registerUser } = require('../helpers/seed');
 
 // Cross-module e2e: two regular users and one admin interacting over a single
 // blog post, exercising registration + auth + ownership/role enforcement
@@ -18,9 +19,9 @@ describe('Multi-user permissions journey (e2e)', () => {
 
   it('registers the owner, another user, and an admin', async () => {
     const [ownerRes, otherRes, adminRes] = await Promise.all([
-      request(app).post('/api/v1/users').send(owner),
-      request(app).post('/api/v1/users').send(other),
-      request(app).post('/api/v1/users').send(admin),
+      registerUser(owner),
+      registerUser(other),
+      registerUser(admin),
     ]);
     expect(ownerRes.status).toBe(201);
     expect(otherRes.status).toBe(201);

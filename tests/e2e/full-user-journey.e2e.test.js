@@ -1,6 +1,7 @@
 const request = require('supertest');
 const app = require('../helpers/app');
 const { buildUserPayload } = require('../helpers/factories');
+const { registerUser } = require('../helpers/seed');
 
 // A single realistic client journey across all three modules (user, auth, blog),
 // run as ordered steps sharing state - unlike the integration suite, which
@@ -119,10 +120,20 @@ describe('Full user journey (e2e)', () => {
     const blogAfter = await request(app).get(`/api/v1/blogs/${blogId}`);
     expect(blogAfter.status).toBe(404);
 
-    const deleteUser = await request(app).delete(`/api/v1/users/${userId}`);
+    // Deleting accounts is admin-only now, so a regular user is refused...
+    const selfDelete = await agent.delete(`/api/v1/users/${userId}`);
+    expect(selfDelete.status).toBe(403);
+
+    // ...and an admin does the cleanup.
+    const adminPayload = buildUserPayload({ role: 'admin' });
+    await registerUser(adminPayload);
+    const adminAgent = request.agent(app);
+    await adminAgent.post('/api/v1/auth/login').send({ email: adminPayload.email, password: adminPayload.password });
+
+    const deleteUser = await adminAgent.delete(`/api/v1/users/${userId}`);
     expect(deleteUser.status).toBe(200);
 
-    const userAfter = await request(app).get(`/api/v1/users/${userId}`);
+    const userAfter = await adminAgent.get(`/api/v1/users/${userId}`);
     expect(userAfter.status).toBe(404);
   });
 });

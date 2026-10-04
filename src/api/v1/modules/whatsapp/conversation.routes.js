@@ -13,9 +13,10 @@ const {
 const { sendMessageSchema, assignSchema, sendTemplateSchema } = require('./conversation.validator');
 const validate = require('../../../../common/middlewares/validate.middleware');
 const isAuthenticated = require('../../../../common/middlewares/auth.middleware');
+const restrictTo = require('../../../../common/middlewares/restrictTo.middleware');
 
-// The whole inbox is staff-only.
-router.use(isAuthenticated);
+// The whole inbox is admin-only.
+router.use(isAuthenticated, restrictTo('admin'));
 
 router.get('/', getAllConversations);
 router.get('/:id/messages', getMessages);

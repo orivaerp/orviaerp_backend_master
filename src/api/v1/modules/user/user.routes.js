@@ -11,17 +11,22 @@ const {
 
 const { createUserSchema, updateUserSchema } = require('./user.validator');
 const validate = require('../../../../common/middlewares/validate.middleware');
+const isAuthenticated = require('../../../../common/middlewares/auth.middleware');
+const restrictTo = require('../../../../common/middlewares/restrictTo.middleware');
 
-// NOTE: No auth middleware here by design.
-// Once the auth module is ready, protect these like:
-// router.use(protect); or router.use(protect, restrictTo('admin'))
+const adminOnly = [isAuthenticated, restrictTo('admin')];
 
-router.route('/').get(getAllUsers).post(validate(createUserSchema), createUser);
+// POST stays public because the /register page uses it; the controller forces
+// role 'user' unless the caller is a logged-in admin. Everything else is admin-only.
+router
+  .route('/')
+  .get(...adminOnly, getAllUsers)
+  .post(validate(createUserSchema), createUser);
 
 router
   .route('/:id')
-  .get(getUserById)
-  .put(validate(updateUserSchema), updateUser)
-  .delete(deleteUser);
+  .get(...adminOnly, getUserById)
+  .put(...adminOnly, validate(updateUserSchema), updateUser)
+  .delete(...adminOnly, deleteUser);
 
 module.exports = router;

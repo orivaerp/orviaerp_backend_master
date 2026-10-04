@@ -20,18 +20,18 @@ const restrictTo = require('../../../../common/middlewares/restrictTo.middleware
 // Anyone can submit the public contact form; only staff can view/manage submissions.
 router
   .route('/')
-  .get(isAuthenticated, restrictTo('admin', 'vendor'), getAllContacts)
+  .get(isAuthenticated, restrictTo('admin'), getAllContacts)
   .post(validate(createContactSchema), createContact);
 
-router.get('/stats', isAuthenticated, restrictTo('admin', 'vendor'), getContactStats);
-router.get('/export', isAuthenticated, restrictTo('admin', 'vendor'), exportContacts);
+router.get('/stats', isAuthenticated, restrictTo('admin'), getContactStats);
+router.get('/export', isAuthenticated, restrictTo('admin'), exportContacts);
 
 router
   .route('/:id')
-  .get(isAuthenticated, restrictTo('admin', 'vendor'), getContactById)
-  .put(isAuthenticated, restrictTo('admin', 'vendor'), validate(updateContactSchema), updateContact)
+  .get(isAuthenticated, restrictTo('admin'), getContactById)
+  .put(isAuthenticated, restrictTo('admin'), validate(updateContactSchema), updateContact)
   .delete(isAuthenticated, restrictTo('admin'), deleteContact);
 
-router.post('/:id/notes', isAuthenticated, restrictTo('admin', 'vendor'), validate(addNoteSchema), addContactNote);
+router.post('/:id/notes', isAuthenticated, restrictTo('admin'), validate(addNoteSchema), addContactNote);
 
 module.exports = router;

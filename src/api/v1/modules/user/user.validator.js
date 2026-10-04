@@ -11,7 +11,7 @@ exports.createUserSchema = Joi.object({
     .pattern(/^[0-9+\-\s()]{7,15}$/)
     .allow('', null),
   password: Joi.string().min(6).required(),
-  role: Joi.string().valid('admin', 'user', 'vendor'),
+  role: Joi.string().valid('admin', 'user', 'vendor', 'sales'),
 });
 
 exports.updateUserSchema = Joi.object({
@@ -22,6 +22,6 @@ exports.updateUserSchema = Joi.object({
     .trim()
     .pattern(/^[0-9+\-\s()]{7,15}$/)
     .allow('', null),
-  role: Joi.string().valid('admin', 'user', 'vendor'),
+  role: Joi.string().valid('admin', 'user', 'vendor', 'sales'),
   status: Joi.string().valid('active', 'inactive', 'blocked'),
 }).min(1); // at least one field required for update
