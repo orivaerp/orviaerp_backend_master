@@ -14,11 +14,19 @@ const SEND_DELAY_MS = 150;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-exports.createBroadcast = async ({ templateName, templateLanguage, bodyParams, recipients, createdBy }) => {
+exports.createBroadcast = async ({
+  templateName,
+  templateLanguage,
+  bodyParams,
+  headerMedia,
+  recipients,
+  createdBy,
+}) => {
   return WaBroadcast.create({
     templateName,
     templateLanguage,
     bodyParams,
+    headerMedia,
     recipients: recipients.map((waId) => ({ waId, status: 'queued' })),
     totalCount: recipients.length,
     createdBy,
@@ -47,6 +55,7 @@ exports.processBroadcast = async (broadcastId, sentBy) => {
         name: broadcast.templateName,
         language: broadcast.templateLanguage,
         bodyParams: broadcast.bodyParams,
+        headerMedia: broadcast.headerMedia?.type ? broadcast.headerMedia : undefined,
       });
 
       recipient.status = 'sent';

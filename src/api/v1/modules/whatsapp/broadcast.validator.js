@@ -6,7 +6,17 @@ const phonePattern = /^[0-9]{7,15}$/;
 exports.createBroadcastSchema = Joi.object({
   templateName: Joi.string().trim().min(1).required(),
   templateLanguage: Joi.string().trim().min(1).required(),
-  bodyParams: Joi.array().items(Joi.string().trim().allow('')).default([]),
+  // Meta rejects empty text parameters, so fail fast here instead of failing every recipient.
+  bodyParams: Joi.array()
+    .items(Joi.string().trim().min(1).message('Template values cannot be empty'))
+    .default([]),
+  headerMedia: Joi.object({
+    type: Joi.string().valid('image', 'video', 'document').required(),
+    id: Joi.string().trim(),
+    link: Joi.string().trim().uri(),
+  })
+    .or('id', 'link')
+    .optional(),
   recipients: Joi.array()
     .items(
       Joi.string()

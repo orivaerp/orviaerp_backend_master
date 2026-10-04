@@ -51,7 +51,9 @@ exports.sendTextMessage = async (to, body) => {
 // @param to - customer's WhatsApp number (E.164-ish, no leading "+")
 // @param bodyParams - ordered list of strings to fill the template's {{1}}, {{2}}, ...
 //                      placeholders. Omit/empty if the template has none.
-exports.sendTemplateMessage = async (to, { name, language, bodyParams = [] }) => {
+// @param headerMedia - { type: 'image'|'video'|'document', id?, link? }. Required when the
+//                      template's HEADER is a media format; Meta rejects the send otherwise.
+exports.sendTemplateMessage = async (to, { name, language, bodyParams = [], headerMedia }) => {
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
 
   const template = {
@@ -59,13 +61,25 @@ exports.sendTemplateMessage = async (to, { name, language, bodyParams = [] }) =>
     language: { code: language },
   };
 
+  const components = [];
+
+  if (headerMedia && (headerMedia.id || headerMedia.link)) {
+    const mediaRef = headerMedia.id ? { id: headerMedia.id } : { link: headerMedia.link };
+    components.push({
+      type: 'header',
+      parameters: [{ type: headerMedia.type, [headerMedia.type]: mediaRef }],
+    });
+  }
+
   if (bodyParams.length > 0) {
-    template.components = [
-      {
-        type: 'body',
-        parameters: bodyParams.map((text) => ({ type: 'text', text })),
-      },
-    ];
+    components.push({
+      type: 'body',
+      parameters: bodyParams.map((text) => ({ type: 'text', text })),
+    });
+  }
+
+  if (components.length > 0) {
+    template.components = components;
   }
 
   const result = await graphFetch(`${phoneNumberId}/messages`, {

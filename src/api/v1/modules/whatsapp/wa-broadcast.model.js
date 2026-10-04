@@ -10,11 +10,21 @@ const recipientResultSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const headerMediaSchema = new mongoose.Schema(
+  {
+    type: { type: String, enum: ['image', 'video', 'document'] },
+    id: String,
+    link: String,
+  },
+  { _id: false }
+);
+
 const waBroadcastSchema = new mongoose.Schema(
   {
     templateName: { type: String, required: true },
     templateLanguage: { type: String, required: true },
     bodyParams: [String],
+    headerMedia: headerMediaSchema,
     recipients: [recipientResultSchema],
     totalCount: { type: Number, required: true },
     sentCount: { type: Number, default: 0 },

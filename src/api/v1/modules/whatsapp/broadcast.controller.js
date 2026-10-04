@@ -5,12 +5,13 @@ const broadcastService = require('./broadcast.service');
 // @desc    Start a bulk template-message broadcast to 1-1000 recipients
 // @route   POST /api/v1/whatsapp/broadcasts
 exports.createBroadcast = catchAsync(async (req, res) => {
-  const { templateName, templateLanguage, bodyParams, recipients } = req.body;
+  const { templateName, templateLanguage, bodyParams, headerMedia, recipients } = req.body;
 
   const broadcast = await broadcastService.createBroadcast({
     templateName,
     templateLanguage,
     bodyParams,
+    headerMedia,
     recipients,
     createdBy: req.user.id,
   });
