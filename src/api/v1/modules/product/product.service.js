@@ -13,8 +13,17 @@ const populateRefs = (query) =>
     .populate('subCategory', CATEGORY_FIELDS)
     .populate('subSubCategory', CATEGORY_FIELDS);
 
-exports.findAll = async (filter = {}) => {
-  return populateRefs(Product.find({ isDeleted: false, ...filter })).sort('-createdAt');
+// `page` is { skip, limit } from common/utils/pagination; omit it for the full list.
+exports.findAll = async (filter = {}, page) => {
+  const query = populateRefs(Product.find({ isDeleted: false, ...filter })).sort({
+    createdAt: -1,
+    _id: -1,
+  });
+  return page ? query.skip(page.skip).limit(page.limit) : query;
+};
+
+exports.count = async (filter = {}) => {
+  return Product.countDocuments({ isDeleted: false, ...filter });
 };
 
 exports.findById = async (id) => {

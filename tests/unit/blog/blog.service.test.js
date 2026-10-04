@@ -15,7 +15,9 @@ const blogService = require('../../../src/api/v1/modules/blog/blog.service');
 function makeQueryMock(resolvedValue) {
   const query = {};
   query.populate = jest.fn(() => query);
-  query.sort = jest.fn(() => Promise.resolve(resolvedValue));
+  query.sort = jest.fn(() => query);
+  query.skip = jest.fn(() => query);
+  query.limit = jest.fn(() => query);
   query.then = (resolve, reject) => Promise.resolve(resolvedValue).then(resolve, reject);
   return query;
 }
@@ -23,7 +25,7 @@ function makeQueryMock(resolvedValue) {
 describe('blog.service', () => {
   afterEach(() => jest.clearAllMocks());
 
-  it('findAllBlogs populates author and sorts by -createdAt', async () => {
+  it('findAllBlogs populates author and sorts newest first (with _id tiebreak)', async () => {
     const query = makeQueryMock([{ _id: '1' }]);
     Blog.find.mockReturnValue(query);
 
@@ -31,8 +33,19 @@ describe('blog.service', () => {
 
     expect(Blog.find).toHaveBeenCalledWith({});
     expect(query.populate).toHaveBeenCalledWith('author', 'firstName lastName email');
-    expect(query.sort).toHaveBeenCalledWith('-createdAt');
+    expect(query.sort).toHaveBeenCalledWith({ createdAt: -1, _id: -1 });
+    expect(query.skip).not.toHaveBeenCalled();
     expect(result).toEqual([{ _id: '1' }]);
+  });
+
+  it('findAllBlogs applies skip/limit when a page is given', async () => {
+    const query = makeQueryMock([{ _id: '1' }]);
+    Blog.find.mockReturnValue(query);
+
+    await blogService.findAllBlogs({}, { skip: 20, limit: 10 });
+
+    expect(query.skip).toHaveBeenCalledWith(20);
+    expect(query.limit).toHaveBeenCalledWith(10);
   });
 
   it('findBlogById populates author', async () => {

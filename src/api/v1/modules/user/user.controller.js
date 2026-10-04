@@ -1,12 +1,26 @@
 const userService = require('./user.service');
 const catchAsync = require('../../../../common/utils/catchAsync');
 const { success, error } = require('../../../../common/utils/apiResponse');
+const { parsePagination, buildMeta } = require('../../../../common/utils/pagination');
 
 // @desc    Get all users
 // @route   GET /api/v1/users
 exports.getAllUsers = catchAsync(async (req, res) => {
-  const users = await userService.findAllUsers();
-  return success(res, { message: 'Users fetched successfully', data: users });
+  const pagination = parsePagination(req.query);
+  if (!pagination) {
+    const users = await userService.findAllUsers();
+    return success(res, { message: 'Users fetched successfully', data: users });
+  }
+
+  const [users, total] = await Promise.all([
+    userService.findAllUsers({}, pagination),
+    userService.countUsers({}),
+  ]);
+  return success(res, {
+    message: 'Users fetched successfully',
+    data: users,
+    meta: buildMeta(pagination, total),
+  });
 });
 
 // @desc    Get single user by ID

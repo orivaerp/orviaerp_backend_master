@@ -1,6 +1,7 @@
 const contactService = require('./contact.service');
 const catchAsync = require('../../../../common/utils/catchAsync');
 const { success, error } = require('../../../../common/utils/apiResponse');
+const { parsePagination, buildMeta } = require('../../../../common/utils/pagination');
 
 // Shared by list/stats/export so all three respect the same filters.
 function buildFilter(query) {
@@ -45,8 +46,22 @@ exports.createContact = catchAsync(async (req, res) => {
 // @desc    Get all contact submissions (filterable)
 // @route   GET /api/v1/contacts
 exports.getAllContacts = catchAsync(async (req, res) => {
-  const submissions = await contactService.findAll(buildFilter(req.query));
-  return success(res, { message: 'Contact submissions fetched successfully', data: submissions });
+  const filter = buildFilter(req.query);
+  const pagination = parsePagination(req.query);
+  if (!pagination) {
+    const submissions = await contactService.findAll(filter);
+    return success(res, { message: 'Contact submissions fetched successfully', data: submissions });
+  }
+
+  const [submissions, total] = await Promise.all([
+    contactService.findAll(filter, pagination),
+    contactService.count(filter),
+  ]);
+  return success(res, {
+    message: 'Contact submissions fetched successfully',
+    data: submissions,
+    meta: buildMeta(pagination, total),
+  });
 });
 
 // @desc    Get submission counts by status/service for the listing page's stat cards

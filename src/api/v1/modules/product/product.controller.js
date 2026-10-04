@@ -1,6 +1,7 @@
 const productService = require('./product.service');
 const catchAsync = require('../../../../common/utils/catchAsync');
 const { success, error } = require('../../../../common/utils/apiResponse');
+const { parsePagination, buildMeta } = require('../../../../common/utils/pagination');
 
 // @desc    Get all products (optionally filtered by category/status)
 // @route   GET /api/v1/products
@@ -10,8 +11,21 @@ exports.getAllProducts = catchAsync(async (req, res) => {
   if (req.query.subCategory) filter.subCategory = req.query.subCategory;
   if (req.query.status) filter.status = req.query.status;
 
-  const products = await productService.findAll(filter);
-  return success(res, { message: 'Products fetched successfully', data: products });
+  const pagination = parsePagination(req.query);
+  if (!pagination) {
+    const products = await productService.findAll(filter);
+    return success(res, { message: 'Products fetched successfully', data: products });
+  }
+
+  const [products, total] = await Promise.all([
+    productService.findAll(filter, pagination),
+    productService.count(filter),
+  ]);
+  return success(res, {
+    message: 'Products fetched successfully',
+    data: products,
+    meta: buildMeta(pagination, total),
+  });
 });
 
 // @desc    Get single product by ID

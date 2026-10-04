@@ -1,13 +1,27 @@
 const blogService = require('./blog.service');
 const catchAsync = require('../../../../common/utils/catchAsync');
 const { success, error } = require('../../../../common/utils/apiResponse');
+const { parsePagination, buildMeta } = require('../../../../common/utils/pagination');
 const { deleteFromS3, replaceFile } = require('../../../../common/services/file-upload.service');
 
 // @desc    Get all blogs
 // @route   GET /api/v1/blogs
 exports.getAllBlogs = catchAsync(async (req, res) => {
-  const blogs = await blogService.findAllBlogs();
-  return success(res, { message: 'Blogs fetched successfully', data: blogs });
+  const pagination = parsePagination(req.query);
+  if (!pagination) {
+    const blogs = await blogService.findAllBlogs();
+    return success(res, { message: 'Blogs fetched successfully', data: blogs });
+  }
+
+  const [blogs, total] = await Promise.all([
+    blogService.findAllBlogs({}, pagination),
+    blogService.countBlogs({}),
+  ]);
+  return success(res, {
+    message: 'Blogs fetched successfully',
+    data: blogs,
+    meta: buildMeta(pagination, total),
+  });
 });
 
 // @desc    Get single blog by ID

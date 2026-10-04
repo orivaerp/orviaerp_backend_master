@@ -3,6 +3,7 @@ const Enquiry = require('./enquiry.model');
 const { parseCsv, matchEnum } = require('./enquiry-csv');
 const catchAsync = require('../../../../common/utils/catchAsync');
 const { success, error } = require('../../../../common/utils/apiResponse');
+const { parsePagination, buildMeta } = require('../../../../common/utils/pagination');
 
 // Shared by list/stats/export so all three respect the same filters.
 function buildFilter(query) {
@@ -32,8 +33,22 @@ function buildFilter(query) {
 // @desc    Get all enquiries (filterable by status/source/date range/search)
 // @route   GET /api/v1/enquiries
 exports.getAllEnquiries = catchAsync(async (req, res) => {
-  const enquiries = await enquiryService.findAll(buildFilter(req.query));
-  return success(res, { message: 'Enquiries fetched successfully', data: enquiries });
+  const filter = buildFilter(req.query);
+  const pagination = parsePagination(req.query);
+  if (!pagination) {
+    const enquiries = await enquiryService.findAll(filter);
+    return success(res, { message: 'Enquiries fetched successfully', data: enquiries });
+  }
+
+  const [enquiries, total] = await Promise.all([
+    enquiryService.findAll(filter, pagination),
+    enquiryService.count(filter),
+  ]);
+  return success(res, {
+    message: 'Enquiries fetched successfully',
+    data: enquiries,
+    meta: buildMeta(pagination, total),
+  });
 });
 
 // @desc    Get lead counts by status/source for the listing page's stat cards

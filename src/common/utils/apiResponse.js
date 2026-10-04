@@ -1,10 +1,9 @@
 // Consistent success/error response shape across the API
-exports.success = (res, { statusCode = 200, message = 'Success', data = null }) => {
-  return res.status(statusCode).json({
-    success: true,
-    message,
-    data,
-  });
+// `meta` is only included when given (paginated lists), so other responses are unchanged.
+exports.success = (res, { statusCode = 200, message = 'Success', data = null, meta } = {}) => {
+  const body = { success: true, message, data };
+  if (meta) body.meta = meta;
+  return res.status(statusCode).json(body);
 };
 
 exports.error = (res, { statusCode = 500, message = 'Something went wrong', errors = null }) => {

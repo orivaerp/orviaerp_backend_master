@@ -10,18 +10,36 @@ jest.mock('../../../src/api/v1/modules/user/user.model', () => ({
 const User = require('../../../src/api/v1/modules/user/user.model');
 const userService = require('../../../src/api/v1/modules/user/user.service');
 
+// Chainable, awaitable stand-in for a mongoose Query (find().sort().skip().limit()).
+function makeQueryMock(resolvedValue) {
+  const query = {};
+  query.sort = jest.fn(() => query);
+  query.skip = jest.fn(() => query);
+  query.limit = jest.fn(() => query);
+  query.then = (resolve, reject) => Promise.resolve(resolvedValue).then(resolve, reject);
+  return query;
+}
+
 describe('user.service', () => {
   afterEach(() => jest.clearAllMocks());
 
   it('findAllUsers passes the filter through to User.find', async () => {
-    User.find.mockResolvedValue([{ _id: '1' }]);
+    User.find.mockReturnValue(makeQueryMock([{ _id: '1' }]));
     const result = await userService.findAllUsers({ role: 'admin' });
     expect(User.find).toHaveBeenCalledWith({ role: 'admin' });
     expect(result).toEqual([{ _id: '1' }]);
   });
 
+  it('findAllUsers applies skip/limit when a page is given', async () => {
+    const query = makeQueryMock([]);
+    User.find.mockReturnValue(query);
+    await userService.findAllUsers({}, { skip: 30, limit: 10 });
+    expect(query.skip).toHaveBeenCalledWith(30);
+    expect(query.limit).toHaveBeenCalledWith(10);
+  });
+
   it('findAllUsers defaults to an empty filter', async () => {
-    User.find.mockResolvedValue([]);
+    User.find.mockReturnValue(makeQueryMock([]));
     await userService.findAllUsers();
     expect(User.find).toHaveBeenCalledWith({});
   });

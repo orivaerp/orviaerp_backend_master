@@ -7,8 +7,17 @@ const normalizeRefs = (data) => {
 
 const populateRefs = (query) => query.populate('assignedTo', 'firstName lastName email');
 
-exports.findAll = async (filter = {}) => {
-  return populateRefs(ContactSubmission.find({ isDeleted: false, ...filter })).sort('-createdAt');
+// `page` is { skip, limit } from common/utils/pagination; omit it for the full list.
+exports.findAll = async (filter = {}, page) => {
+  const query = populateRefs(ContactSubmission.find({ isDeleted: false, ...filter })).sort({
+    createdAt: -1,
+    _id: -1,
+  });
+  return page ? query.skip(page.skip).limit(page.limit) : query;
+};
+
+exports.count = async (filter = {}) => {
+  return ContactSubmission.countDocuments({ isDeleted: false, ...filter });
 };
 
 exports.findById = async (id) => {
