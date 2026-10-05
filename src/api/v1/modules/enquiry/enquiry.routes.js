@@ -12,6 +12,7 @@ const {
   exportEnquiries,
   importEnquiries,
   completeEnquiryFollowUp,
+  bulkAssignEnquiries,
 } = require('./enquiry.controller');
 
 const {
@@ -19,6 +20,7 @@ const {
   updateEnquirySchema,
   addNoteSchema,
   completeFollowUpSchema,
+  bulkAssignSchema,
 } = require('./enquiry.validator');
 const validate = require('../../../../common/middlewares/validate.middleware');
 const isAuthenticated = require('../../../../common/middlewares/auth.middleware');
@@ -33,6 +35,13 @@ router
 router.get('/stats', isAuthenticated, restrictTo('admin', 'vendor', 'sales'), getEnquiryStats);
 router.get('/export', isAuthenticated, restrictTo('admin', 'vendor', 'sales'), exportEnquiries);
 router.post('/import', isAuthenticated, restrictTo('admin'), importEnquiries);
+router.post(
+  '/bulk-assign',
+  isAuthenticated,
+  restrictTo('admin'),
+  validate(bulkAssignSchema),
+  bulkAssignEnquiries
+);
 
 router
   .route('/:id')

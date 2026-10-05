@@ -48,6 +48,12 @@ exports.addNoteSchema = Joi.object({
   followUpAt: Joi.date().iso().allow(null, ''),
 });
 
+// Admin bulk assignment: many leads -> one person (or null to unassign them all).
+exports.bulkAssignSchema = Joi.object({
+  ids: Joi.array().items(objectId).min(1).max(500).unique().required(),
+  assignedTo: objectId.allow(null, '').required(),
+});
+
 exports.completeFollowUpSchema = Joi.object({
   text: Joi.string().trim().min(1).max(2000).allow('', null),
 });

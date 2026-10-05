@@ -121,6 +121,45 @@ exports.softDeleteById = async (id) => {
   return Enquiry.findOneAndUpdate({ _id: id, isDeleted: false }, { isDeleted: true }, { new: true });
 };
 
+// Assigns many leads at once. Only leads whose assignee actually changes are touched
+// (and get an "assigned" activity naming the previous assignee), so re-running the same
+// request is harmless. Returns how many changed / were already assigned / weren't found.
+exports.bulkAssign = async (ids, assignedTo, actor) => {
+  const target = assignedTo || null;
+  const leads = await Enquiry.find({ _id: { $in: ids }, isDeleted: false }).select('assignedTo');
+
+  const changing = leads.filter((lead) => idOf(lead.assignedTo) !== idOf(target));
+
+  if (changing.length > 0) {
+    const at = new Date();
+    await Enquiry.bulkWrite(
+      changing.map((lead) => ({
+        updateOne: {
+          filter: { _id: lead._id },
+          update: {
+            $set: { assignedTo: target },
+            $push: {
+              activities: {
+                type: 'assigned',
+                actor,
+                at,
+                assignedFrom: lead.assignedTo || null,
+                assignedTo: target,
+              },
+            },
+          },
+        },
+      }))
+    );
+  }
+
+  return {
+    updated: changing.length,
+    unchanged: leads.length - changing.length,
+    notFound: ids.length - leads.length,
+  };
+};
+
 // Calendar-day buckets in the *caller's* timezone. `tzOffset` is minutes behind UTC
 // (what JS's Date#getTimezoneOffset returns, e.g. -330 for IST).
 exports.dayBounds = (tzOffset = 0, now = new Date()) => {

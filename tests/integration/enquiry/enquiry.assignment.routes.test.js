@@ -367,3 +367,116 @@ describe('Follow-up day boundaries (unit)', () => {
     expect(end.toISOString()).toBe('2026-10-06T06:59:59.999Z');
   });
 });
+
+describe('Bulk assignment (integration)', () => {
+  async function leads(count) {
+    const out = [];
+    for (let i = 0; i < count; i += 1) {
+      out.push(await publicLead({ name: `Bulk Lead ${i}`, phone: `9333333${String(i).padStart(3, '0')}` }));
+    }
+    return out;
+  }
+
+  it('assigns many leads to one user in a single request, and they show up in that user\'s list', async () => {
+    const admin = await loginAs('admin');
+    const sales = await loginAs('sales');
+    const batch = await leads(5);
+
+    const res = await admin
+      .post('/api/v1/enquiries/bulk-assign')
+      .send({ ids: batch.map((l) => l._id), assignedTo: sales.userId });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual({ updated: 5, unchanged: 0, notFound: 0 });
+    expect((await sales.get('/api/v1/enquiries')).body.data).toHaveLength(5);
+    expect((await admin.get('/api/v1/enquiries?assignedTo=unassigned')).body.data).toHaveLength(0);
+  });
+
+  it('records an "assigned" activity per lead, naming the previous assignee on reassignment', async () => {
+    const admin = await loginAs('admin');
+    const sales = await loginAs('sales');
+    const vendor = await loginAs('vendor');
+    const [a, b] = await leads(2);
+    await admin.put(`/api/v1/enquiries/${a._id}`).send({ assignedTo: sales.userId });
+
+    await admin.post('/api/v1/enquiries/bulk-assign').send({ ids: [a._id, b._id], assignedTo: vendor.userId });
+
+    const first = (await admin.get(`/api/v1/enquiries/${a._id}`)).body.data.activities.pop();
+    expect(first.type).toBe('assigned');
+    expect(first.actor._id).toBe(admin.userId);
+    expect(first.assignedFrom._id).toBe(sales.userId);
+    expect(first.assignedTo._id).toBe(vendor.userId);
+
+    const second = (await admin.get(`/api/v1/enquiries/${b._id}`)).body.data.activities.pop();
+    expect(second.assignedFrom).toBeFalsy();
+    expect(second.assignedTo._id).toBe(vendor.userId);
+  });
+
+  it('only touches leads whose assignee changes, so repeating the request is harmless', async () => {
+    const admin = await loginAs('admin');
+    const sales = await loginAs('sales');
+    const batch = await leads(3);
+    const body = { ids: batch.map((l) => l._id), assignedTo: sales.userId };
+
+    await admin.post('/api/v1/enquiries/bulk-assign').send(body);
+    const again = await admin.post('/api/v1/enquiries/bulk-assign').send(body);
+
+    expect(again.body.data).toEqual({ updated: 0, unchanged: 3, notFound: 0 });
+    const { activities } = (await admin.get(`/api/v1/enquiries/${batch[0]._id}`)).body.data;
+    expect(activities.filter((a) => a.type === 'assigned')).toHaveLength(1);
+  });
+
+  it('can unassign many leads at once with assignedTo: null', async () => {
+    const admin = await loginAs('admin');
+    const sales = await loginAs('sales');
+    const batch = await leads(2);
+    const ids = batch.map((l) => l._id);
+    await admin.post('/api/v1/enquiries/bulk-assign').send({ ids, assignedTo: sales.userId });
+
+    const res = await admin.post('/api/v1/enquiries/bulk-assign').send({ ids, assignedTo: null });
+    expect(res.body.data.updated).toBe(2);
+    expect((await sales.get('/api/v1/enquiries')).body.data).toHaveLength(0);
+  });
+
+  it('reports ids that do not exist or were deleted, without failing the rest', async () => {
+    const admin = await loginAs('admin');
+    const sales = await loginAs('sales');
+    const [keep, gone] = await leads(2);
+    await Enquiry.updateOne({ _id: gone._id }, { isDeleted: true });
+
+    const res = await admin
+      .post('/api/v1/enquiries/bulk-assign')
+      .send({ ids: [keep._id, gone._id, '000000000000000000000000'], assignedTo: sales.userId });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual({ updated: 1, unchanged: 0, notFound: 2 });
+  });
+
+  it('is admin-only: vendor and sales get 403 even for leads they own', async () => {
+    const admin = await loginAs('admin');
+    for (const role of ['vendor', 'sales']) {
+      const agent = await loginAs(role);
+      const [l] = await leads(1);
+      await admin.put(`/api/v1/enquiries/${l._id}`).send({ assignedTo: agent.userId });
+
+      const res = await agent.post('/api/v1/enquiries/bulk-assign').send({ ids: [l._id], assignedTo: agent.userId });
+      expect(res.status).toBe(403);
+    }
+    expect((await request(app).post('/api/v1/enquiries/bulk-assign').send({ ids: ['000000000000000000000000'], assignedTo: null })).status).toBe(401);
+  });
+
+  it('rejects an inactive or nonexistent assignee, and bad payloads, without changing anything', async () => {
+    const admin = await loginAs('admin');
+    const blocked = await loginAs('sales');
+    await admin.put(`/api/v1/users/${blocked.userId}`).send({ status: 'blocked' });
+    const [l] = await leads(1);
+
+    expect((await admin.post('/api/v1/enquiries/bulk-assign').send({ ids: [l._id], assignedTo: blocked.userId })).status).toBe(400);
+    expect((await admin.post('/api/v1/enquiries/bulk-assign').send({ ids: [l._id], assignedTo: '000000000000000000000000' })).status).toBe(400);
+    expect((await admin.post('/api/v1/enquiries/bulk-assign').send({ ids: [], assignedTo: null })).status).toBe(400);
+    expect((await admin.post('/api/v1/enquiries/bulk-assign').send({ ids: ['not-an-id'], assignedTo: null })).status).toBe(400);
+    expect((await admin.post('/api/v1/enquiries/bulk-assign').send({ ids: [l._id] })).status).toBe(400);
+
+    expect((await admin.get(`/api/v1/enquiries/${l._id}`)).body.data.assignedTo).toBeFalsy();
+  });
+});

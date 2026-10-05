@@ -162,6 +162,18 @@ exports.addEnquiryNote = catchAsync(async (req, res) => {
   return success(res, { message: 'Note added successfully', data: enquiry });
 });
 
+// @desc    Assign many leads to one user (or unassign them) in one go — admin only
+// @route   POST /api/v1/enquiries/bulk-assign
+exports.bulkAssignEnquiries = catchAsync(async (req, res) => {
+  const { ids, assignedTo } = req.body;
+
+  const problem = await assigneeProblem(assignedTo || null);
+  if (problem) return error(res, { statusCode: 400, message: problem });
+
+  const result = await enquiryService.bulkAssign(ids, assignedTo || null, req.user.id);
+  return success(res, { message: 'Leads assigned', data: result });
+});
+
 // @desc    Mark the lead's pending follow-up as done (optionally with a closing remark)
 // @route   POST /api/v1/enquiries/:id/followup/complete
 exports.completeEnquiryFollowUp = catchAsync(async (req, res) => {
