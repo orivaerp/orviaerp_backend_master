@@ -26,6 +26,8 @@ const ENQUIRY_STATUSES = ['new', 'contacted', 'in-progress', 'converted', 'lost'
 // domain and the frontend only offers suggestions, not a hard enum.
 const ENQUIRY_CATEGORIES = ['health', 'education', 'transport', 'retail', 'portfolio'];
 
+const ENQUIRY_ACTIVITY_TYPES = ['created', 'assigned', 'status_changed', 'followup_done'];
+
 const enquirySchema = new Schema(
   {
     name: { type: String, required: true, trim: true },
@@ -65,10 +67,16 @@ const enquirySchema = new Schema(
       default: 'new',
       index: true,
     },
+    // Only an admin can set this. Non-admin staff can see (and work) only the
+    // leads assigned to them.
     assignedTo: {
       type: Schema.Types.ObjectId,
       ref: 'User',
+      index: true,
     },
+    // The one pending follow-up, if any (set by adding a remark with a follow-up
+    // date, cleared when it's marked done). Drives the "follow-ups due" views.
+    nextFollowUpAt: { type: Date, index: true },
     // Staff member who added the lead from the admin panel (or imported it).
     // Left empty for public website-form submissions.
     createdBy: {
@@ -79,8 +87,29 @@ const enquirySchema = new Schema(
       {
         text: { type: String, trim: true, required: true },
         addedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+        // Set when the remark also schedules a follow-up.
+        followUpAt: { type: Date },
         createdAt: { type: Date, default: Date.now },
       },
+    ],
+
+    // System-recorded events (remarks live in `notes`; the UI merges the two into
+    // one timeline). Append-only.
+    activities: [
+      new Schema(
+        {
+          type: { type: String, enum: ENQUIRY_ACTIVITY_TYPES, required: true },
+          actor: { type: Schema.Types.ObjectId, ref: 'User' }, // empty = website form / system
+          at: { type: Date, default: Date.now },
+          statusFrom: String,
+          statusTo: String,
+          assignedFrom: { type: Schema.Types.ObjectId, ref: 'User' },
+          assignedTo: { type: Schema.Types.ObjectId, ref: 'User' },
+          followUpAt: Date,
+          text: { type: String, trim: true },
+        },
+        { _id: false }
+      ),
     ],
 
     isDeleted: { type: Boolean, default: false },
@@ -97,5 +126,6 @@ const Enquiry = mongoose.model('Enquiry', enquirySchema);
 Enquiry.SOURCES = ENQUIRY_SOURCES;
 Enquiry.STATUSES = ENQUIRY_STATUSES;
 Enquiry.CATEGORIES = ENQUIRY_CATEGORIES;
+Enquiry.ACTIVITY_TYPES = ENQUIRY_ACTIVITY_TYPES;
 
 module.exports = Enquiry;

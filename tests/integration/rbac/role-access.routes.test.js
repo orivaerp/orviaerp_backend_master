@@ -5,9 +5,10 @@ const { registerUser } = require('../../helpers/seed');
 
 async function loginAs(role) {
   const payload = buildUserPayload({ role });
-  await registerUser(payload);
+  const registered = await registerUser(payload);
   const agent = request.agent(app);
   await agent.post('/api/v1/auth/login').send({ email: payload.email, password: payload.password });
+  agent.userId = registered.body.data._id;
   return agent;
 }
 
@@ -18,8 +19,11 @@ const lead = () => ({ name: 'Jordan Lead', phone: '9876500000' });
 describe.each(['vendor', 'sales'])('%s role access (integration)', (role) => {
   it('can list, open, update and add notes to enquiries, and export them', async () => {
     const agent = await loginAs(role);
+    const admin = await loginAs('admin');
     const created = await request(app).post('/api/v1/enquiries').send(lead());
     const id = created.body.data._id;
+    // Staff only work leads an admin has assigned to them.
+    await admin.put(`/api/v1/enquiries/${id}`).send({ assignedTo: agent.userId });
 
     expect((await agent.get('/api/v1/enquiries')).status).toBe(200);
     expect((await agent.get('/api/v1/enquiries/stats')).status).toBe(200);
@@ -38,7 +42,9 @@ describe.each(['vendor', 'sales'])('%s role access (integration)', (role) => {
 
   it('cannot delete an enquiry', async () => {
     const agent = await loginAs(role);
+    const admin = await loginAs('admin');
     const created = await request(app).post('/api/v1/enquiries').send(lead());
+    await admin.put(`/api/v1/enquiries/${created.body.data._id}`).send({ assignedTo: agent.userId });
     const res = await agent.delete(`/api/v1/enquiries/${created.body.data._id}`);
     expect(res.status).toBe(403);
   });

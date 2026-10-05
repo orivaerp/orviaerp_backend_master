@@ -11,9 +11,15 @@ const {
   deleteEnquiry,
   exportEnquiries,
   importEnquiries,
+  completeEnquiryFollowUp,
 } = require('./enquiry.controller');
 
-const { createEnquirySchema, updateEnquirySchema, addNoteSchema } = require('./enquiry.validator');
+const {
+  createEnquirySchema,
+  updateEnquirySchema,
+  addNoteSchema,
+  completeFollowUpSchema,
+} = require('./enquiry.validator');
 const validate = require('../../../../common/middlewares/validate.middleware');
 const isAuthenticated = require('../../../../common/middlewares/auth.middleware');
 const restrictTo = require('../../../../common/middlewares/restrictTo.middleware');
@@ -40,6 +46,14 @@ router.post(
   restrictTo('admin', 'vendor', 'sales'),
   validate(addNoteSchema),
   addEnquiryNote
+);
+
+router.post(
+  '/:id/followup/complete',
+  isAuthenticated,
+  restrictTo('admin', 'vendor', 'sales'),
+  validate(completeFollowUpSchema),
+  completeEnquiryFollowUp
 );
 
 module.exports = router;

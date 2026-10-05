@@ -11,7 +11,8 @@ exports.registerUser = async (payload) => {
   }
 
   const user = await User.create(payload);
-  const data = user.toObject();
+  // JSON round-trip so ids are strings, exactly as the HTTP endpoint would return them.
+  const data = JSON.parse(JSON.stringify(user.toObject()));
   delete data.password;
   return { status: 201, body: { data } };
 };

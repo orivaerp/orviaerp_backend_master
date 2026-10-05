@@ -29,6 +29,8 @@ exports.createEnquirySchema = Joi.object({
   source: Joi.string().valid(...Enquiry.SOURCES),
   // Only relevant when staff manually add a lead that's already past "new".
   status: Joi.string().valid(...Enquiry.STATUSES),
+  // Honoured only when an admin is creating the lead.
+  assignedTo: objectId.allow(null, ''),
   ...leadDetailFields,
 });
 
@@ -42,4 +44,10 @@ exports.updateEnquirySchema = Joi.object({
 
 exports.addNoteSchema = Joi.object({
   text: Joi.string().trim().min(1).max(2000).required(),
+  // Optional: also schedule the lead's next follow-up.
+  followUpAt: Joi.date().iso().allow(null, ''),
+});
+
+exports.completeFollowUpSchema = Joi.object({
+  text: Joi.string().trim().min(1).max(2000).allow('', null),
 });

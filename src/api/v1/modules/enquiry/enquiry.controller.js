@@ -1,12 +1,24 @@
+const mongoose = require('mongoose');
 const enquiryService = require('./enquiry.service');
 const Enquiry = require('./enquiry.model');
+const User = require('../user/user.model');
 const { parseCsv, matchEnum } = require('./enquiry-csv');
 const catchAsync = require('../../../../common/utils/catchAsync');
 const { success, error } = require('../../../../common/utils/apiResponse');
 const { parsePagination, buildMeta } = require('../../../../common/utils/pagination');
 
-// Shared by list/stats/export so all three respect the same filters.
-function buildFilter(query) {
+// Admins see every lead; everyone else only the leads assigned to them.
+const isAdmin = (user) => user?.role === 'admin';
+const scopeFor = (user) => (isAdmin(user) ? {} : { assignedTo: new mongoose.Types.ObjectId(user.id) });
+
+const tzOffsetOf = (query) => {
+  const n = parseInt(query.tzOffset, 10);
+  return Number.isFinite(n) ? n : 0;
+};
+
+// Shared by list/stats/export so all three respect the same filters — and the same
+// visibility rules (the scope is applied last so a query param can never widen it).
+function buildFilter(query, user) {
   const filter = {};
   if (query.status) filter.status = query.status;
   if (query.source) filter.source = query.source;
@@ -27,13 +39,33 @@ function buildFilter(query) {
     filter.$or = [{ name: regex }, { email: regex }, { phone: regex }];
   }
 
-  return filter;
+  const followUp = enquiryService.followUpCondition(query.followUp, tzOffsetOf(query));
+  if (followUp) filter.nextFollowUpAt = followUp;
+
+  // Admin-only filter: one assignee, or the unassigned pool.
+  if (isAdmin(user) && query.assignedTo) {
+    if (query.assignedTo === 'unassigned') filter.assignedTo = null;
+    else if (mongoose.isValidObjectId(query.assignedTo)) {
+      filter.assignedTo = new mongoose.Types.ObjectId(query.assignedTo);
+    }
+  }
+
+  return { ...filter, ...scopeFor(user) };
+}
+
+// Only an active user can be given a lead.
+async function assigneeProblem(userId) {
+  if (!userId) return null;
+  const assignee = await User.findById(userId);
+  if (!assignee) return 'The selected user does not exist';
+  if (assignee.status !== 'active') return 'Leads can only be assigned to an active user';
+  return null;
 }
 
 // @desc    Get all enquiries (filterable by status/source/date range/search)
 // @route   GET /api/v1/enquiries
 exports.getAllEnquiries = catchAsync(async (req, res) => {
-  const filter = buildFilter(req.query);
+  const filter = buildFilter(req.query, req.user);
   const pagination = parsePagination(req.query);
   if (!pagination) {
     const enquiries = await enquiryService.findAll(filter);
@@ -54,14 +86,17 @@ exports.getAllEnquiries = catchAsync(async (req, res) => {
 // @desc    Get lead counts by status/source for the listing page's stat cards
 // @route   GET /api/v1/enquiries/stats
 exports.getEnquiryStats = catchAsync(async (req, res) => {
-  const stats = await enquiryService.getStats(buildFilter(req.query));
+  const stats = await enquiryService.getStats(buildFilter(req.query, req.user), {
+    tzOffset: tzOffsetOf(req.query),
+  });
   return success(res, { message: 'Enquiry stats fetched successfully', data: stats });
 });
 
 // @desc    Get single enquiry by ID
 // @route   GET /api/v1/enquiries/:id
 exports.getEnquiryById = catchAsync(async (req, res) => {
-  const enquiry = await enquiryService.findById(req.params.id);
+  // Out-of-scope leads look exactly like missing ones, so ids can't be probed.
+  const enquiry = await enquiryService.findById(req.params.id, scopeFor(req.user));
   if (!enquiry) {
     return error(res, { statusCode: 404, message: 'Enquiry not found' });
   }
@@ -74,14 +109,39 @@ exports.getEnquiryById = catchAsync(async (req, res) => {
 exports.createEnquiry = catchAsync(async (req, res) => {
   // Taken from the session, never the request body (the route is public), so
   // it can't be spoofed. Anonymous website submissions get no createdBy.
-  const enquiry = await enquiryService.create({ ...req.body, createdBy: req.user?.id });
+  const data = { ...req.body, createdBy: req.user?.id };
+
+  // Assignment: an admin may pick anyone; a non-admin staff member's own lead is
+  // assigned to them (otherwise they could not see what they just added); public
+  // form submissions start unassigned.
+  if (isAdmin(req.user)) {
+    const problem = await assigneeProblem(data.assignedTo);
+    if (problem) return error(res, { statusCode: 400, message: problem });
+  } else if (req.user) {
+    data.assignedTo = req.user.id;
+  } else {
+    delete data.assignedTo;
+  }
+
+  const enquiry = await enquiryService.create(data);
   return success(res, { statusCode: 201, message: 'Enquiry submitted successfully', data: enquiry });
 });
 
 // @desc    Update enquiry status/assignment by ID
 // @route   PUT /api/v1/enquiries/:id
 exports.updateEnquiry = catchAsync(async (req, res) => {
-  const enquiry = await enquiryService.updateById(req.params.id, req.body);
+  if ('assignedTo' in req.body) {
+    if (!isAdmin(req.user)) {
+      return error(res, { statusCode: 403, message: 'Only an admin can assign leads' });
+    }
+    const problem = await assigneeProblem(req.body.assignedTo);
+    if (problem) return error(res, { statusCode: 400, message: problem });
+  }
+
+  const enquiry = await enquiryService.updateById(req.params.id, req.body, {
+    actor: req.user.id,
+    scope: scopeFor(req.user),
+  });
   if (!enquiry) {
     return error(res, { statusCode: 404, message: 'Enquiry not found' });
   }
@@ -91,14 +151,32 @@ exports.updateEnquiry = catchAsync(async (req, res) => {
 // @desc    Add an internal note to an enquiry
 // @route   POST /api/v1/enquiries/:id/notes
 exports.addEnquiryNote = catchAsync(async (req, res) => {
-  const enquiry = await enquiryService.addNote(req.params.id, {
-    text: req.body.text,
-    addedBy: req.user.id,
-  });
+  const enquiry = await enquiryService.addNote(
+    req.params.id,
+    { text: req.body.text, addedBy: req.user.id, followUpAt: req.body.followUpAt || undefined },
+    scopeFor(req.user)
+  );
   if (!enquiry) {
     return error(res, { statusCode: 404, message: 'Enquiry not found' });
   }
   return success(res, { message: 'Note added successfully', data: enquiry });
+});
+
+// @desc    Mark the lead's pending follow-up as done (optionally with a closing remark)
+// @route   POST /api/v1/enquiries/:id/followup/complete
+exports.completeEnquiryFollowUp = catchAsync(async (req, res) => {
+  const enquiry = await enquiryService.completeFollowUp(
+    req.params.id,
+    { actor: req.user.id, text: req.body.text },
+    scopeFor(req.user)
+  );
+  if (enquiry === null) {
+    return error(res, { statusCode: 404, message: 'Enquiry not found' });
+  }
+  if (enquiry === false) {
+    return error(res, { statusCode: 400, message: 'This lead has no pending follow-up' });
+  }
+  return success(res, { message: 'Follow-up marked done', data: enquiry });
 });
 
 // @desc    Soft-delete enquiry by ID
@@ -138,7 +216,7 @@ function csvEscape(value) {
 // @desc    Export the (optionally filtered) enquiry list as CSV
 // @route   GET /api/v1/enquiries/export
 exports.exportEnquiries = catchAsync(async (req, res) => {
-  const enquiries = await enquiryService.findAll(buildFilter(req.query));
+  const enquiries = await enquiryService.findAll(buildFilter(req.query, req.user));
 
   const rows = enquiries.map((e) =>
     [
