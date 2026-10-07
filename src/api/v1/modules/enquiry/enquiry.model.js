@@ -19,7 +19,16 @@ const ENQUIRY_SOURCES = [
 ];
 
 // Lead pipeline stage.
-const ENQUIRY_STATUSES = ['new', 'contacted', 'in-progress', 'converted', 'lost', 'wrong', 'closed'];
+const ENQUIRY_STATUSES = [
+  'new',
+  'contacted',
+  'interested',
+  'in-progress',
+  'converted',
+  'lost',
+  'wrong',
+  'closed',
+];
 
 // Business domain the lead belongs to (independent of the Product/Category
 // catalog tree). subCategory is free text — its valid values differ per
