@@ -66,6 +66,7 @@ exports.processBroadcast = async (broadcastId, sentBy) => {
         waId: recipient.waId,
         waMessageId,
         templateName: broadcast.templateName,
+        templateLanguage: broadcast.templateLanguage,
         bodyParams: broadcast.bodyParams,
         sentBy,
       });
@@ -96,7 +97,7 @@ exports.processBroadcast = async (broadcastId, sentBy) => {
 // Mirrors conversation.controller.js's saveOutboundMessage, but the recipient
 // may be a brand-new contact with no existing conversation (unlike a reply
 // from the inbox, which always has one already).
-async function recordOutboundMessage({ waId, waMessageId, templateName, bodyParams, sentBy }) {
+async function recordOutboundMessage({ waId, waMessageId, templateName, templateLanguage, bodyParams, sentBy }) {
   const contact = await WaContact.findOneAndUpdate(
     { waId },
     { waId },
@@ -118,6 +119,7 @@ async function recordOutboundMessage({ waId, waMessageId, templateName, bodyPara
     direction: 'outbound',
     type: 'template',
     text: preview,
+    template: { name: templateName, language: templateLanguage, bodyParams },
     sentBy,
     status: 'sent',
     timestamp,

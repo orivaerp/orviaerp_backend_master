@@ -28,6 +28,13 @@ const waMessageSchema = new mongoose.Schema(
     text: {
       type: String,
     },
+    // Set on outbound template messages so the inbox can render the real template,
+    // not just the "[template: name] values" preview text.
+    template: {
+      name: String,
+      language: String,
+      bodyParams: [String],
+    },
     media: {
       url: String,
       key: String, // our own S3 copy of inbound media (Meta's CDN links expire)

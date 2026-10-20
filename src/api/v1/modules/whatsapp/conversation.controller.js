@@ -7,13 +7,14 @@ const { getIO } = require('../../../../common/config/socket');
 
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
-async function saveOutboundMessage(conversation, { waMessageId, type, text, sentBy }) {
+async function saveOutboundMessage(conversation, { waMessageId, type, text, sentBy, template }) {
   const message = await WaMessage.create({
     conversation: conversation._id,
     waMessageId,
     direction: 'outbound',
     type,
     text,
+    template,
     sentBy,
     status: 'sent',
     timestamp: new Date(),
@@ -102,6 +103,7 @@ exports.sendTemplateMessage = catchAsync(async (req, res) => {
     waMessageId,
     type: 'template',
     text: preview,
+    template: { name, language, bodyParams },
     sentBy: req.user.id,
   });
 
