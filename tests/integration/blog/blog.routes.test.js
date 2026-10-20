@@ -118,3 +118,49 @@ describe('Blog routes (integration)', () => {
     expect(after.status).toBe(404);
   });
 });
+
+describe('Blog posting — short and edge-case content (integration)', () => {
+  it('publishes a short post the way the editor sends it', async () => {
+    const { agent } = await createLoggedInAgent({ role: 'user' });
+    const res = await agent.post('/api/v1/blogs').send({ title: 'Quick note', content: '<p>Hello world</p>', status: 'published' });
+    expect(res.status).toBe(201);
+    expect(res.body.data.status).toBe('published');
+  });
+
+  it('saves a short draft too', async () => {
+    const { agent } = await createLoggedInAgent({ role: 'user' });
+    const res = await agent.post('/api/v1/blogs').send({ title: 'Quick draft', content: '<p>Just a thought</p>', status: 'draft' });
+    expect(res.status).toBe(201);
+    expect(res.body.data.status).toBe('draft');
+  });
+
+  it('refuses an empty editor with a message that says why', async () => {
+    const { agent } = await createLoggedInAgent({ role: 'user' });
+    const res = await agent.post('/api/v1/blogs').send({ title: 'Empty one', content: '<p><br></p>' });
+    expect(res.status).toBe(400);
+    expect(res.body.errors).toEqual(['Post content must have at least 10 characters of text']);
+  });
+
+  it('reports every problem at once (so the UI can show them all)', async () => {
+    const { agent } = await createLoggedInAgent({ role: 'user' });
+    const res = await agent.post('/api/v1/blogs').send({
+      title: 'Both wrong',
+      content: '<p><br></p>',
+      metaTitle: 'x'.repeat(71),
+      metaDescription: 'y'.repeat(199),
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.errors).toHaveLength(3);
+  });
+
+  it('accepts the meta fields at exactly their limits', async () => {
+    const { agent } = await createLoggedInAgent({ role: 'user' });
+    const res = await agent.post('/api/v1/blogs').send({
+      title: 'At the limits',
+      content: '<p>Hello world</p>',
+      metaTitle: 'x'.repeat(70),
+      metaDescription: 'y'.repeat(160),
+    });
+    expect(res.status).toBe(201);
+  });
+});

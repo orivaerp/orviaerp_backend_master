@@ -110,6 +110,20 @@ exports.listTemplates = async () => {
   return result.data || [];
 };
 
+// Uploads a file to the business phone number's media store and returns the media ID that
+// template sends can reference as a header. Meta deletes uploaded media after 30 days.
+exports.uploadMedia = async ({ buffer, mimeType, filename }) => {
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+
+  const form = new FormData();
+  form.append('messaging_product', 'whatsapp');
+  form.append('type', mimeType);
+  form.append('file', new Blob([buffer], { type: mimeType }), filename);
+
+  const result = await graphFetch(`${phoneNumberId}/media`, { method: 'POST', body: form });
+  return result.id;
+};
+
 // Meta's media URLs are short-lived and require the same bearer token to
 // fetch, so this returns the raw bytes rather than a URL callers could store.
 exports.downloadMedia = async (mediaId) => {
