@@ -13,4 +13,12 @@ exports.sendTemplateSchema = Joi.object({
   name: Joi.string().trim().min(1).required(),
   language: Joi.string().trim().min(1).required(), // e.g. "en_US"
   bodyParams: Joi.array().items(Joi.string().trim().allow('')).default([]),
+  // Needed when the template's HEADER is an image/video/document; Meta rejects the send without it.
+  headerMedia: Joi.object({
+    type: Joi.string().valid('image', 'video', 'document').required(),
+    id: Joi.string().trim(),
+    link: Joi.string().trim().uri(),
+  })
+    .or('id', 'link')
+    .optional(),
 });

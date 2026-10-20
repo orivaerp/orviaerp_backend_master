@@ -45,4 +45,28 @@ describe('Template messages from the inbox (integration)', () => {
     const thread = await admin.get(`/api/v1/whatsapp/conversations/${conversation._id}/messages`);
     expect(thread.body.data.messages[0].template.name).toBe('orvia_pharmacy_free_trial');
   });
+
+  it('passes the header image/video/document on to WhatsApp, and rejects a malformed one', async () => {
+    const admin = await loginAsAdmin();
+    const contact = await WaContact.create({ waId: '919876543211', name: 'Sita' });
+    const conversation = await WaConversation.create({ contact: contact._id });
+    const url = `/api/v1/whatsapp/conversations/${conversation._id}/template-messages`;
+
+    const ok = await admin.post(url).send({
+      name: 'orvia_pharmacy_free_trial',
+      language: 'en',
+      bodyParams: ['Sita'],
+      headerMedia: { type: 'image', id: '1581940549868425' },
+    });
+    expect(ok.status).toBe(201);
+    expect(cloudApi.sendTemplateMessage).toHaveBeenLastCalledWith(
+      '919876543211',
+      expect.objectContaining({ headerMedia: { type: 'image', id: '1581940549868425' } })
+    );
+
+    const bad = await admin
+      .post(url)
+      .send({ name: 'x', language: 'en', headerMedia: { type: 'image' } });
+    expect(bad.status).toBe(400);
+  });
 });

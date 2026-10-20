@@ -89,12 +89,13 @@ exports.sendTemplateMessage = catchAsync(async (req, res) => {
     return error(res, { statusCode: 404, message: 'Conversation not found' });
   }
 
-  const { name, language, bodyParams = [] } = req.body;
+  const { name, language, bodyParams = [], headerMedia } = req.body;
 
   const waMessageId = await cloudApi.sendTemplateMessage(conversation.contact.waId, {
     name,
     language,
     bodyParams,
+    headerMedia,
   });
 
   const preview = bodyParams.length > 0 ? `[template: ${name}] ${bodyParams.join(' · ')}` : `[template: ${name}]`;
