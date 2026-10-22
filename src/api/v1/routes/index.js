@@ -13,6 +13,7 @@ const whatsappConversationRoutes = require('../modules/whatsapp/conversation.rou
 const whatsappTemplateRoutes = require('../modules/whatsapp/template.routes');
 const whatsappBroadcastRoutes = require('../modules/whatsapp/broadcast.routes');
 const whatsappMediaRoutes = require('../modules/whatsapp/media.routes');
+const emailMarketingRoutes = require('../modules/email-marketing/email-marketing.routes');
 
 router.use('/users', userRoutes);
 router.use('/auth', authRoutes);
@@ -26,5 +27,6 @@ router.use('/whatsapp/conversations', whatsappConversationRoutes);
 router.use('/whatsapp/templates', whatsappTemplateRoutes);
 router.use('/whatsapp/broadcasts', whatsappBroadcastRoutes);
 router.use('/whatsapp/media', whatsappMediaRoutes);
+router.use('/email', emailMarketingRoutes);
 
 module.exports = router;
