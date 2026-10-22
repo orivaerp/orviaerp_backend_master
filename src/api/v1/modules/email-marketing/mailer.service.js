@@ -25,6 +25,11 @@ function getTransport() {
       auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
       pool: true,
       maxConnections: 3,
+      // Fail fast instead of waiting minutes on a hung connection (the default socket timeout is 10 min),
+      // so one stuck mail shows up as "failed" and can be retried rather than sitting in the queue.
+      connectionTimeout: 15000,
+      greetingTimeout: 15000,
+      socketTimeout: 30000,
     });
   }
   return transport;
