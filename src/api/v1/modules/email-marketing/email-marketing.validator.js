@@ -23,6 +23,11 @@ exports.importSubscribersSchema = Joi.object({
   csv: Joi.string().min(1).required(),
 });
 
+exports.blockAddressSchema = Joi.object({
+  email: email().required(),
+  note: Joi.string().trim().allow('').max(300).default(''),
+});
+
 exports.templateSchema = Joi.object({
   name: Joi.string().trim().min(1).max(120).required(),
   subject: Joi.string().trim().min(1).max(200).required(),

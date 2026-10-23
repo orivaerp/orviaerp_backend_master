@@ -59,7 +59,9 @@ exports.unsubscribePage = catchAsync(async (req, res) => {
 // Also the target of the one-click "List-Unsubscribe-Post" header (RFC 8058).
 // @route POST /api/v1/email/unsubscribe/:token
 exports.unsubscribe = catchAsync(async (req, res) => {
-  const recipient = await campaignService.unsubscribeByToken(req.params.token);
+  // Mail apps' one-click button posts "List-Unsubscribe=One-Click"; our own page posts an empty form.
+  const oneClick = req.body && req.body['List-Unsubscribe'] === 'One-Click';
+  const recipient = await campaignService.unsubscribeByToken(req.params.token, oneClick ? 'one-click' : 'link');
   if (!recipient) {
     return res.status(404).send(page('Link expired', '<h2>This link is no longer valid</h2>'));
   }

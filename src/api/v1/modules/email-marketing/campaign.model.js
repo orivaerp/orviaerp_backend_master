@@ -36,6 +36,8 @@ const campaignSchema = new mongoose.Schema(
     // Progress and results. Opens/clicks are unique people, not raw hits.
     totalCount: { type: Number, default: 0 },
     sentCount: { type: Number, default: 0 },
+    // Confirmed delivered by SES (needs the SNS events set up).
+    deliveredCount: { type: Number, default: 0 },
     failedCount: { type: Number, default: 0 },
     skippedCount: { type: Number, default: 0 },
     openCount: { type: Number, default: 0 },

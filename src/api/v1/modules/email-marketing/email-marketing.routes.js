@@ -4,6 +4,8 @@ const router = express.Router();
 const subscribers = require('./subscriber.controller');
 const campaigns = require('./campaign.controller');
 const publicEndpoints = require('./public.controller');
+const blocked = require('./blocked.controller');
+const deliverability = require('./deliverability.controller');
 const v = require('./email-marketing.validator');
 const validate = require('../../../../common/middlewares/validate.middleware');
 const isAuthenticated = require('../../../../common/middlewares/auth.middleware');
@@ -13,7 +15,7 @@ const restrictTo = require('../../../../common/middlewares/restrictTo.middleware
 router.get('/t/o/:token.gif', publicEndpoints.openPixel);
 router.get('/t/c/:token', publicEndpoints.clickRedirect);
 router.get('/unsubscribe/:token', publicEndpoints.unsubscribePage);
-router.post('/unsubscribe/:token', publicEndpoints.unsubscribe);
+router.post('/unsubscribe/:token', express.urlencoded({ extended: false }), publicEndpoints.unsubscribe);
 router.post('/sns', express.text({ type: '*/*', limit: '256kb' }), publicEndpoints.snsWebhook);
 
 /* ---- Admin only ---- */
@@ -27,6 +29,13 @@ router.post('/subscribers', validate(v.createSubscriberSchema), subscribers.crea
 router.post('/subscribers/import', validate(v.importSubscribersSchema), subscribers.importSubscribers);
 router.patch('/subscribers/:id', validate(v.updateSubscriberSchema), subscribers.updateSubscriber);
 router.delete('/subscribers/:id', subscribers.deleteSubscriber);
+
+router.get('/blocked', blocked.getBlocked);
+router.post('/blocked', validate(v.blockAddressSchema), blocked.blockAddress);
+router.delete('/blocked/:id', blocked.unblockAddress);
+
+router.get('/deliverability', deliverability.getSummary);
+router.get('/deliverability/events', deliverability.getEvents);
 
 router.get('/templates', campaigns.getAllTemplates);
 router.post('/templates', validate(v.templateSchema), campaigns.createTemplate);

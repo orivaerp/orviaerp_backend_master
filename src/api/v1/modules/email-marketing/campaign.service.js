@@ -205,21 +205,22 @@ exports.recordClick = async (token) => {
 };
 
 // Marks the address as suppressed everywhere (not just for this campaign).
-exports.suppress = async (email, status, source) => {
+exports.suppress = async (email, status, source, { blockSource, note } = {}) => {
+  const set = { status, statusChangedAt: new Date() };
+  if (blockSource) set.blockSource = blockSource;
+  if (note !== undefined) set.note = note;
   await Subscriber.findOneAndUpdate(
     { email },
-    {
-      $set: { status, statusChangedAt: new Date() },
-      $setOnInsert: { source, name: '' },
-    },
+    { $set: set, $setOnInsert: { source, name: '' } },
     { upsert: true }
   );
 };
 
-exports.unsubscribeByToken = async (token) => {
+// how: 'link' (the page's button) or 'one-click' (the mail app's own unsubscribe button)
+exports.unsubscribeByToken = async (token, how = 'link') => {
   const recipient = await CampaignRecipient.findOne({ token });
   if (!recipient) return null;
-  await exports.suppress(recipient.email, 'unsubscribed', 'unsubscribe');
+  await exports.suppress(recipient.email, 'unsubscribed', 'unsubscribe', { blockSource: how });
   if (!recipient.unsubscribedAt) {
     recipient.unsubscribedAt = new Date();
     await recipient.save();
@@ -242,6 +243,17 @@ exports.recordDeliveryProblem = async (sesMessageId, kind, detail) => {
       { $inc: kind === 'bounced' ? { bounceCount: 1 } : { complaintCount: 1 } }
     );
   }
-  await exports.suppress(recipient.email, kind, 'bounce');
+  await exports.suppress(recipient.email, kind, 'bounce', { blockSource: 'ses' });
+  return recipient;
+};
+
+exports.recordDelivered = async (sesMessageId) => {
+  const recipient = await CampaignRecipient.findOneAndUpdate(
+    { sesMessageId, deliveredAt: null },
+    { deliveredAt: new Date() },
+    { new: false }
+  );
+  if (!recipient) return null;
+  await Campaign.updateOne({ _id: recipient.campaign }, { $inc: { deliveredCount: 1 } });
   return recipient;
 };

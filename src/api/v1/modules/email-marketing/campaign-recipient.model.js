@@ -16,6 +16,7 @@ const campaignRecipientSchema = new mongoose.Schema(
     sesMessageId: { type: String },
     error: String,
     sentAt: Date,
+    deliveredAt: Date,
     openedAt: Date,
     openCount: { type: Number, default: 0 },
     clickedAt: Date,

@@ -37,7 +37,7 @@ exports.getAllSubscribers = catchAsync(async (req, res) => {
 // @route GET /api/v1/email/subscribers/stats
 exports.getSubscriberStats = catchAsync(async (req, res) => {
   const rows = await Subscriber.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]);
-  const stats = { total: 0, subscribed: 0, unsubscribed: 0, bounced: 0, complained: 0 };
+  const stats = { total: 0, subscribed: 0, unsubscribed: 0, bounced: 0, complained: 0, blocked: 0 };
   rows.forEach((r) => {
     stats[r._id] = r.count;
     stats.total += r.count;
